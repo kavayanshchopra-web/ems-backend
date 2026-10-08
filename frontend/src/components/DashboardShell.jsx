@@ -7368,17 +7368,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       };
     }
 
-    if (Array.isArray(contacts) && contacts.length > 0) {
-      const latestLead = contacts[0];
-      return {
-        name: latestLead.name || latestLead.customName || latestLead.phone || 'Recent Contact',
-        phone: latestLead.phone || '',
-        subtitle: `${latestLead.pipeline_stage || 'Contact'} • Recent Lead`,
-        time: 'Recent',
-        priority: 'Active'
-      };
-    }
-
     return null;
   }, [scheduledMessages, contacts]);
 

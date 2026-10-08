@@ -207,6 +207,16 @@ export default function MobileAppLauncher({
     return 'Partner';
   }, [authUser]);
 
+  const userInitials = useMemo(() => {
+    const name = userGreetingName || '';
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    if (parts.length === 1 && parts[0].length >= 1) return parts[0].slice(0, 2).toUpperCase();
+    return 'KC';
+  }, [userGreetingName]);
+
+  const userAvatarUrl = authUser?.avatar || authUser?.photoURL || authUser?.profile_image || authUser?.photo || null;
+
   // Master Access Control Check:
   // Evaluates both Role & Permission engine (canNav) and Tenant Subscription (isModuleSubscribed)
   const hasAccess = (modId) => {
@@ -340,75 +350,96 @@ export default function MobileAppLauncher({
       display: 'flex',
       flexDirection: 'column'
     }}>
-      {/* ── TOP HERO HEADER: Dark Emerald/Teal Gradient with Brand Identity ── */}
+      {/* ── TOP HERO HEADER: Dark Emerald Gradient with Brand Identity & Top Metric Cards ── */}
       <header style={{
-        background: 'linear-gradient(135deg, #03231d 0%, #064e43 100%)',
-        padding: '16px 16px 20px 16px',
-        color: '#ffffff',
-        boxShadow: '0 4px 20px rgba(3, 35, 29, 0.35)',
-        borderBottomLeftRadius: '22px',
-        borderBottomRightRadius: '22px',
+        background: activeView === 'home'
+          ? 'linear-gradient(180deg, #022c22 0%, #064e43 100%)'
+          : '#ffffff',
+        padding: activeView === 'home' ? '16px 16px 22px 16px' : '14px 16px 16px 16px',
+        color: activeView === 'home' ? '#ffffff' : '#0f172a',
+        boxShadow: activeView === 'home'
+          ? '0 6px 20px rgba(2, 44, 34, 0.28)'
+          : '0 1px 4px rgba(0, 0, 0, 0.04)',
+        borderBottom: activeView === 'home' ? 'none' : '1px solid #e2e8f0',
+        borderBottomLeftRadius: activeView === 'home' ? '28px' : '0px',
+        borderBottomRightRadius: activeView === 'home' ? '28px' : '0px',
         position: 'sticky',
         top: 0,
         zIndex: 50
       }}>
-        {/* Top Control Bar: Logo, Workspace Pill, Bell & Settings */}
+        {/* Top Control Bar: Logo & Actions */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Brand Logo & Title */}
+          <div
+            onClick={() => handleNavigate('__home__')}
+            style={{ display: 'flex', alignItems: 'center', gap: '9px', cursor: 'pointer' }}
+          >
             <div style={{
-              width: '38px',
-              height: '38px',
+              width: '36px',
+              height: '36px',
               borderRadius: '11px',
-              background: '#042a23',
-              border: '1.5px solid rgba(20, 210, 203, 0.4)',
+              background: 'linear-gradient(135deg, #0d9488 0%, #042f2e 100%)',
+              border: activeView === 'home' ? '1.5px solid rgba(20, 210, 203, 0.45)' : '1.5px solid #0d9488',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-              overflow: 'hidden',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
               flexShrink: 0
             }}>
-              <img
-                src="/assets/ems-logo.png"
-                alt="EMS Logo"
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
-              <span style={{ fontSize: '13px', fontWeight: '900', color: '#14d2cb' }}>EMS</span>
+              <Layers size={20} color="#ffffff" strokeWidth={2.4} />
             </div>
-
-            {/* Dynamic Workspace / Company Pill */}
-            <div
-              onClick={() => handleNavigate('settings')}
-              title="Current Workspace"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '5px 12px',
-                borderRadius: '20px',
-                background: 'rgba(255, 255, 255, 0.12)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                color: '#ffffff',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                maxWidth: '190px'
-              }}
-            >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {companyName}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{
+                fontSize: '18px',
+                fontWeight: '900',
+                color: activeView === 'home' ? '#ffffff' : '#064e43',
+                letterSpacing: '-0.3px',
+                lineHeight: 1
+              }}>
+                EMS
               </span>
-              <span style={{ fontSize: '9px', opacity: 0.8 }}>▾</span>
+              {activeView === 'all_apps' && (
+                <span style={{
+                  fontSize: '10.5px',
+                  fontWeight: '800',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  background: 'rgba(13, 148, 136, 0.12)',
+                  color: '#0d9488',
+                  letterSpacing: '0.4px'
+                }}>
+                  ALL APPS
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Action Icons: Notification Bell & Settings */}
+          {/* Top Actions: Refresh, Notification Bell & User Profile Avatar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Refresh Button */}
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              title="Refresh Data"
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: activeView === 'home' ? 'rgba(255, 255, 255, 0.12)' : '#f1f5f9',
+                border: activeView === 'home' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid #cbd5e1',
+                color: activeView === 'home' ? '#ffffff' : '#475569',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                padding: 0,
+                flexShrink: 0
+              }}
+            >
+              <RotateCw size={16} />
+            </button>
+
+            {/* Notification Bell with Red Dot */}
             <button
               type="button"
               onClick={() => handleNavigate('notice_board')}
@@ -417,225 +448,234 @@ export default function MobileAppLauncher({
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.12)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
+                background: activeView === 'home' ? 'rgba(255, 255, 255, 0.12)' : '#f1f5f9',
+                border: activeView === 'home' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid #cbd5e1',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                color: '#ffffff',
-                position: 'relative'
+                color: activeView === 'home' ? '#ffffff' : '#475569',
+                position: 'relative',
+                padding: 0,
+                flexShrink: 0
               }}
             >
               <Bell size={18} />
               <span style={{
                 position: 'absolute',
-                top: '6px',
-                right: '6px',
+                top: '7px',
+                right: '7px',
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
                 background: '#ef4444',
-                border: '1.5px solid #064e43'
+                border: activeView === 'home' ? '1.5px solid #064e43' : '1.5px solid #ffffff'
               }} />
             </button>
 
-            <button
-              type="button"
+            {/* User Profile Avatar with Initials / Photo */}
+            <div
               onClick={() => handleNavigate('settings')}
-              title="Settings"
+              title={`Profile: ${userGreetingName}`}
               style={{
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.12)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
+                background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+                border: activeView === 'home' ? '2px solid rgba(255, 255, 255, 0.45)' : '2px solid #0d9488',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                color: '#ffffff',
+                fontWeight: '800',
+                fontSize: '13px',
                 cursor: 'pointer',
-                color: '#ffffff'
+                overflow: 'hidden',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+                flexShrink: 0
               }}
             >
-              <Settings size={18} />
-            </button>
+              {userAvatarUrl ? (
+                <img
+                  src={userAvatarUrl}
+                  alt={userGreetingName}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <span>{userInitials}</span>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Hero Row: User Greeting & Live Shift Status */}
-        <div style={{ marginTop: '16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
+        {/* Home Screen Greeting Row & Top 2 Metric Cards */}
+        {activeView === 'home' && (
+          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <h1 style={{
-              fontSize: '21px',
+              fontSize: '22px',
               fontWeight: '900',
               color: '#ffffff',
               margin: 0,
               letterSpacing: '-0.3px',
               lineHeight: 1.2
             }}>
-              {activeView === 'home' ? `Welcome, ${userGreetingName}` : 'All Applications'}
+              Welcome, {userGreetingName}
             </h1>
-            <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {activeView === 'home' ? (
-                dutyStatus?.isOnDuty ? (
-                  <div style={{
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {dutyStatus?.isOnDuty ? (
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  background: 'rgba(16, 185, 129, 0.22)',
+                  border: '1px solid rgba(16, 185, 129, 0.45)',
+                  color: '#a7f3d0',
+                  fontSize: '11.5px',
+                  fontWeight: '700'
+                }}>
+                  <span style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    boxShadow: '0 0 6px #10b981'
+                  }} />
+                  <span>{dutyStatus.text || 'On Duty'}</span>
+                </div>
+              ) : (
+                <div
+                  onClick={() => handleNavigate('my_attendance')}
+                  title="Tap to Punch In"
+                  style={{
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    padding: '3px 10px',
+                    padding: '4px 12px',
                     borderRadius: '20px',
-                    background: 'rgba(16, 185, 129, 0.22)',
-                    border: '1px solid rgba(16, 185, 129, 0.45)',
-                    color: '#a7f3d0',
-                    fontSize: '11px',
-                    fontWeight: '700'
-                  }}>
-                    <span style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: '#10b981',
-                      boxShadow: '0 0 6px #10b981'
-                    }} />
-                    <span>{dutyStatus.text}</span>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => handleNavigate('my_attendance')}
-                    title="Tap to Punch In"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '3px 10px',
-                      borderRadius: '20px',
-                      background: 'rgba(255, 255, 255, 0.12)',
-                      border: '1px solid rgba(255, 255, 255, 0.22)',
-                      color: '#e2e8f0',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <span style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: '#94a3b8'
-                    }} />
-                    <span>Off Duty • Tap to Punch In</span>
-                  </div>
-                )
-              ) : (
-                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', fontWeight: '500' }}>
-                  {allAvailableApps.length} active apps & modules available
-                </span>
+                    background: 'rgba(255, 255, 255, 0.12)',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    color: '#e2e8f0',
+                    fontSize: '11.5px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <span style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: '#94a3b8'
+                  }} />
+                  <span>Off Duty • Tap to Punch In</span>
+                </div>
               )}
             </div>
-          </div>
 
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            title="Refresh Data"
-            style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '50%',
-              background: 'rgba(255, 255, 255, 0.12)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              marginTop: '2px'
-            }}
-          >
-            <RotateCw size={16} />
-          </button>
-        </div>
+            {/* Top 2 Metric Cards: Tasks & Pipeline Value inside Green Hero Section */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '12px',
+              marginTop: '12px'
+            }}>
+              {/* Metric 1: Tasks */}
+              <div
+                onClick={() => handleNavigate('tasks')}
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  padding: '14px',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
+                  cursor: 'pointer',
+                  color: '#0f172a'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>🕒 Today</span>
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: 'rgba(13, 148, 136, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <ClipboardList size={14} color="#0d9488" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Tasks</div>
+                <div style={{ fontSize: '15px', fontWeight: '800', color: '#0d9488', marginTop: '4px' }}>
+                  {metrics.pendingTasksCount !== undefined && metrics.pendingTasksCount > 0
+                    ? `${metrics.pendingTasksCount} Pending`
+                    : 'All caught up'}
+                </div>
+                <div style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700', marginTop: '6px' }}>
+                  + Add a task
+                </div>
+              </div>
+
+              {/* Metric 2: Pipeline Value */}
+              <div
+                onClick={() => handleNavigate('kanban')}
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  padding: '14px',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
+                  cursor: 'pointer',
+                  color: '#0f172a'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>🕒 Last 30 days</span>
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <TrendingUp size={14} color="#10b981" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Pipeline Value</div>
+                <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a', marginTop: '4px' }}>
+                  {metrics.pipelineValue || '₹0'}
+                </div>
+                <div style={{ fontSize: '11px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>
+                  View Pipeline ↗
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* All Apps Screen Subtitle */}
+        {activeView === 'all_apps' && (
+          <div style={{ marginTop: '8px' }}>
+            <span style={{ fontSize: '12.5px', color: '#64748b', fontWeight: '500' }}>
+              {allAvailableApps.length} active apps & modules available
+            </span>
+          </div>
+        )}
       </header>
 
       {/* ── VIEW 1: HOME DASHBOARD ── */}
       {activeView === 'home' && (
         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-          {/* 2×2 Metric Cards */}
+          {/* Row 2 Metric Cards: Unread Messages & Today Calls */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: '12px'
           }}>
-            {/* Metric 1: Tasks */}
-            <div
-              onClick={() => handleNavigate('tasks')}
-              style={{
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '16px',
-                padding: '14px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>🕒 Today</span>
-                <div style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  background: 'rgba(13, 148, 136, 0.12)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <ClipboardList size={14} color="#0d9488" />
-                </div>
-              </div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Tasks</div>
-              <div style={{ fontSize: '15px', fontWeight: '800', color: '#0d9488', marginTop: '4px' }}>
-                {metrics.pendingTasksCount !== undefined ? `${metrics.pendingTasksCount} Pending` : (metrics.tasksText || '0 Pending')}
-              </div>
-              <div style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700', marginTop: '6px' }}>
-                + Add a task
-              </div>
-            </div>
-
-            {/* Metric 2: Pipeline Value */}
-            <div
-              onClick={() => handleNavigate('kanban')}
-              style={{
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '16px',
-                padding: '14px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>🕒 Last 30 days</span>
-                <div style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <TrendingUp size={14} color="#10b981" />
-                </div>
-              </div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Pipeline Value</div>
-              <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a', marginTop: '4px' }}>
-                {metrics.pipelineValue || '₹0'}
-              </div>
-              <div style={{ fontSize: '11px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>
-                View Pipeline ↗
-              </div>
-            </div>
 
             {/* Metric 3: Unread Messages */}
             <div
@@ -1380,48 +1420,19 @@ export default function MobileAppLauncher({
                           width: '56px',
                           height: '56px',
                           borderRadius: '50%',
-                          border: '1.5px solid #cbd5e1',
-                          background: '#ffffff',
+                          border: '1.5px solid #e2e8f0',
+                          background: item.color ? `${item.color}14` : '#f0fdfa',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           color: item.color || '#064e43',
-                          boxShadow: '0 2px 5px rgba(0,0,0,0.03)',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease',
-                          position: 'relative'
+                          flexShrink: 0
                         }}
                       >
                         <IconComp size={24} strokeWidth={1.8} />
-
-                        {/* Direct Pin Star Button */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            togglePinnedApp(item.id);
-                          }}
-                          title={isPinned ? 'Unpin from Home' : 'Pin to Home'}
-                          style={{
-                            position: 'absolute',
-                            top: '-4px',
-                            right: '-4px',
-                            width: '20px',
-                            height: '20px',
-                            borderRadius: '50%',
-                            background: isPinned ? '#fef3c7' : '#ffffff',
-                            border: isPinned ? '1px solid #f59e0b' : '1px solid #cbd5e1',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: isPinned ? '#f59e0b' : '#94a3b8',
-                            cursor: 'pointer',
-                            padding: 0,
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                          }}
-                        >
-                          <Star size={11} fill={isPinned ? '#f59e0b' : 'none'} />
-                        </button>
                       </div>
 
                       {/* App Label */}
