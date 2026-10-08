@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Home,
   Clock,
@@ -34,74 +34,88 @@ import {
   UserCheck,
   Share2,
   Receipt,
-  X
+  X,
+  Star,
+  Zap,
+  TrendingUp,
+  Shield,
+  Activity,
+  ArrowRight
 } from 'lucide-react';
 
 // Master list of all platform modules for the All Apps directory
-const SYSTEM_MODULES = [
+// Categorized cleanly, strictly checked against user role & permissions
+export const SYSTEM_MODULES = [
   {
     category: 'CRM & Sales',
     items: [
-      { id: 'contacts', label: 'Contacts', icon: Users, desc: 'Clients & Leads Database' },
-      { id: 'conversations', label: 'Conversations', icon: MessageSquare, desc: 'Omnichannel Inbox' },
-      { id: 'wa_live_web', label: 'WhatsApp', icon: MessageCircle, desc: 'Live WhatsApp Web' },
-      { id: 'kanban', label: 'Deals CRM', icon: Layers, desc: 'Visual Sales Pipeline' },
-      { id: 'telecalling', label: 'Phone System', icon: PhoneCall, desc: 'SIM & Cloud Dialer' },
+      { id: 'contacts', label: 'Contacts', icon: Users, desc: 'Clients & Leads Database', color: '#0d9488' },
+      { id: 'conversations', label: 'Conversations', icon: MessageSquare, desc: 'Omnichannel Inbox', color: '#10b981' },
+      { id: 'wa_live_web', label: 'WhatsApp', icon: MessageCircle, desc: 'Live WhatsApp Web', color: '#22c55e' },
+      { id: 'kanban', label: 'Deals CRM', icon: Layers, desc: 'Visual Sales Pipeline', color: '#8b5cf6' },
+      { id: 'telecalling', label: 'Phone System', icon: PhoneCall, desc: 'SIM & Cloud Dialer', color: '#06b6d4' },
+      { id: 'automations_sandbox', label: 'Automations', icon: Zap, desc: 'Event Workflows & Triggers', color: '#f59e0b' },
+      { id: 'reports_crm', label: 'Sales Reports', icon: TrendingUp, desc: 'Revenue & Deal Funnels', color: '#ec4899' }
     ]
   },
   {
     category: 'Insights & Productivity',
     items: [
-      { id: 'admin_dashboard', label: 'Dashboard', icon: Grid, desc: 'Executive Analytics' },
-      { id: 'manager_dashboard', label: 'Task Analytics', icon: ClipboardList, desc: 'Team Performance' },
-      { id: 'gps_attendance', label: 'Live Tracking', icon: Globe, desc: 'Field Team GPS' },
-      { id: 'audit_logs', label: 'Audit Logs', icon: FileText, desc: 'Security Trail' },
-      { id: 'media_storage', label: 'Media Vault', icon: HardDrive, desc: 'Cloud Storage' }
-    ]
-  },
-  {
-    category: 'HR & Workforce',
-    items: [
-      { id: 'employees', label: 'Employees', icon: Users, desc: 'Staff Directory' },
-      { id: 'recruitment_ats', label: 'Recruitment ATS', icon: Briefcase, desc: 'Candidate Pipeline' },
-      { id: 'asset_management', label: 'Asset Vault', icon: HardDrive, desc: 'Company Equipment' },
-      { id: 'verify_documents', label: 'Verify Docs', icon: FileText, desc: 'KYC & Verification' },
-      { id: 'offboarding', label: 'Offboarding', icon: Trash2, desc: 'Exit Clearance' }
-    ]
-  },
-  {
-    category: 'Payroll & Finance',
-    items: [
-      { id: 'payroll', label: 'Payroll & Salary', icon: CreditCard, desc: 'Monthly Salary' },
-      { id: 'taxes_compliance', label: 'Taxes & PF', icon: FileText, desc: 'Statutory Returns' },
-      { id: 'ff_settlements', label: 'F&F Settlements', icon: CheckCircle, desc: 'Full & Final' },
-      { id: 'advances_loans', label: 'Advances & Loans', icon: DollarSign, desc: 'Staff Advances' },
-      { id: 'expenses', label: 'Expenses Claim', icon: Receipt, desc: 'Reimbursements' }
+      { id: 'admin_dashboard', label: 'Dashboard', icon: Grid, desc: 'Executive Analytics', color: '#10b981' },
+      { id: 'manager_dashboard', label: 'Task Analytics', icon: ClipboardList, desc: 'Team Performance', color: '#0d9488' },
+      { id: 'reports_telephony', label: 'Call Reports', icon: PhoneCall, desc: 'Telephony & Audios', color: '#06b6d4' },
+      { id: 'reports_cross', label: 'Cross Analytics', icon: Share2, desc: 'Unified Intelligence', color: '#8b5cf6' },
+      { id: 'reports_builder', label: 'Report Builder', icon: Sliders, desc: 'Custom Ad-hoc Reports', color: '#6366f1' },
+      { id: 'gps_attendance', label: 'Live Tracking', icon: Globe, desc: 'Field Team Radar & GPS', color: '#3b82f6' },
+      { id: 'audit_logs', label: 'Audit Logs', icon: FileText, desc: 'Security Trail & Timestamps', color: '#64748b' },
+      { id: 'media_storage', label: 'Media Vault', icon: HardDrive, desc: 'Cloud Asset Storage', color: '#14b8a6' }
     ]
   },
   {
     category: 'Operations',
     items: [
-      { id: 'tasks', label: 'Tasks', icon: ClipboardList, desc: 'Kanban Tasks' },
-      { id: 'office_kiosk', label: 'Attendance Kiosk', icon: Clock, desc: 'Self Punch Kiosk' },
-      { id: 'my_attendance', label: 'Shift Attendance', icon: Clock, desc: 'Daily Duty In/Out' },
-      { id: 'leaves', label: 'Leaves', icon: Calendar, desc: 'Time Off Requests' },
-      { id: 'shifts', label: 'Work Roster', icon: Calendar, desc: 'Weekly Shifts' },
-      { id: 'notice_board', label: 'Notice Board', icon: Bell, desc: 'Company Bulletins' },
-      { id: 'holidays', label: 'Holidays List', icon: Calendar, desc: 'Calendar Holidays' }
+      { id: 'my_attendance', label: 'Attendance', icon: Clock, desc: 'Daily Duty In/Out Punch', color: '#10b981' },
+      { id: 'tasks', label: 'Tasks Board', icon: ClipboardList, desc: 'Kanban Tasks & To-Dos', color: '#0d9488' },
+      { id: 'office_kiosk', label: 'Kiosk Mode', icon: Clock, desc: 'Self Punch Kiosk Mode', color: '#06b6d4' },
+      { id: 'leaves', label: 'Leave Portal', icon: Calendar, desc: 'Time Off Requests', color: '#f59e0b' },
+      { id: 'shifts', label: 'Work Shifts', icon: Calendar, desc: 'Weekly Roster Schedule', color: '#8b5cf6' },
+      { id: 'notice_board', label: 'Notice Board', icon: Bell, desc: 'Company Bulletins', color: '#ec4899' },
+      { id: 'holidays', label: 'Holidays List', icon: Calendar, desc: 'Calendar Holidays', color: '#3b82f6' }
+    ]
+  },
+  {
+    category: 'HR & Workforce',
+    items: [
+      { id: 'employees', label: 'Employees', icon: Users, desc: 'Staff Directory', color: '#0d9488' },
+      { id: 'recruitment_ats', label: 'Recruitment ATS', icon: Briefcase, desc: 'Candidate Pipeline', color: '#10b981' },
+      { id: 'asset_management', label: 'Asset Vault', icon: HardDrive, desc: 'Company Equipment', color: '#f59e0b' },
+      { id: 'verify_documents', label: 'Verify Docs', icon: FileText, desc: 'KYC & Verification', color: '#6366f1' },
+      { id: 'offboarding', label: 'Offboarding', icon: Trash2, desc: 'Exit Clearance', color: '#ef4444' }
+    ]
+  },
+  {
+    category: 'Payroll & Finance',
+    items: [
+      { id: 'payroll', label: 'Payroll & Salary', icon: CreditCard, desc: 'Monthly Salary & Slips', color: '#10b981' },
+      { id: 'taxes_compliance', label: 'Taxes & PF', icon: FileText, desc: 'Statutory Returns', color: '#0d9488' },
+      { id: 'ff_settlements', label: 'F&F Settlements', icon: CheckCircle, desc: 'Full & Final Clearances', color: '#06b6d4' },
+      { id: 'advances_loans', label: 'Loans & Advance', icon: DollarSign, desc: 'Staff Advances & EMIs', color: '#f59e0b' },
+      { id: 'expenses', label: 'Expense Claim', icon: Receipt, desc: 'Reimbursements', color: '#8b5cf6' }
     ]
   },
   {
     category: 'Settings & Portal',
     items: [
-      { id: 'settings', label: 'Settings', icon: Settings, desc: 'General Preferences' },
-      { id: 'roles_permissions', label: 'Roles & Security', icon: UserCheck, desc: 'Access Matrix' },
-      { id: 'integrations', label: 'Integrations', icon: Share2, desc: 'Webhooks & APIs' },
-      { id: 'system_dropdowns', label: 'Dropdowns', icon: Tag, desc: 'Custom Lists' },
-      { id: 'module_configuration', label: 'Module Config', icon: Sliders, desc: 'Field Customizer' },
-      { id: 'billing', label: 'Billing & Plans', icon: CreditCard, desc: 'SaaS Subscriptions' },
-      { id: 'app_guide', label: 'App Guide', icon: HelpCircle, desc: 'System Tour' },
-      { id: 'feedback', label: 'Feedback', icon: MessageSquareHeart, desc: 'Suggestions' }
+      { id: 'settings', label: 'Settings', icon: Settings, desc: 'General Preferences', color: '#064e43' },
+      { id: 'roles_permissions', label: 'Roles & Security', icon: UserCheck, desc: 'Access Matrix', color: '#0d9488' },
+      { id: 'integrations', label: 'Integrations', icon: Share2, desc: 'Webhooks & APIs', color: '#3b82f6' },
+      { id: 'recycle_bin', label: 'Trash Bin', icon: Trash2, desc: 'Deleted Records Recovery', color: '#ef4444' },
+      { id: 'system_dropdowns', label: 'Dropdowns', icon: Tag, desc: 'Custom System Lists', color: '#f59e0b' },
+      { id: 'module_configuration', label: 'Module Config', icon: Sliders, desc: 'Field Customizer', color: '#8b5cf6' },
+      { id: 'billing', label: 'Billing & Plans', icon: CreditCard, desc: 'SaaS Subscriptions', color: '#10b981' },
+      { id: 'app_guide', label: 'App Guide', icon: HelpCircle, desc: 'System Tour', color: '#06b6d4' },
+      { id: 'feedback', label: 'Feedback', icon: MessageSquareHeart, desc: 'Suggestions & Support', color: '#ec4899' },
+      { id: 'superadmin_plans', label: 'Super Admin', icon: Shield, desc: 'Platform Telemetry', color: '#14d2cb' }
     ]
   }
 ];
@@ -112,13 +126,24 @@ export default function MobileAppLauncher({
   currentView = 'home', // 'home' | 'all_apps'
   onNavigate,
   canNav = () => true,
+  isModuleSubscribed = () => true,
   authUser,
   tenantSubscription,
-  metrics = {}
+  metrics = {},
+  customModules = []
 }) {
+  const [internalView, setInternalView] = useState(currentView);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false);
   const [bookmarkSearch, setBookmarkSearch] = useState('');
+
+  // Keep internal view in sync with prop updates
+  useEffect(() => {
+    if (currentView) {
+      setInternalView(currentView);
+    }
+  }, [currentView]);
 
   // Persisted pinned apps in localStorage
   const [pinnedAppIds, setPinnedAppIds] = useState(() => {
@@ -143,7 +168,7 @@ export default function MobileAppLauncher({
     );
   }, []);
 
-  // Dynamic Company & User Branding (strictly dynamic based on logged in tenant/user)
+  // Dynamic Company & User Branding
   const companyName = useMemo(() => {
     if (authUser?.companyName && authUser.companyName.trim()) return authUser.companyName.trim();
     if (authUser?.company_name && authUser.company_name.trim()) return authUser.company_name.trim();
@@ -152,8 +177,7 @@ export default function MobileAppLauncher({
     if (authUser?.tenantName && authUser.tenantName.trim()) return authUser.tenantName.trim();
     if (tenantSubscription?.company_name && tenantSubscription.company_name.trim()) return tenantSubscription.company_name.trim();
     if (tenantSubscription?.companyName && tenantSubscription.companyName.trim()) return tenantSubscription.companyName.trim();
-    
-    // Check localStorage saved user if available
+
     try {
       const savedUserStr = localStorage.getItem('omnilflow_user');
       if (savedUserStr) {
@@ -167,7 +191,7 @@ export default function MobileAppLauncher({
     if (tId) return `Company #${tId}`;
     const uName = authUser?.displayName || authUser?.name || authUser?.email?.split('@')[0];
     if (uName) return `${uName}'s Workspace`;
-    return 'My Workspace';
+    return 'EMS HQ';
   }, [authUser, tenantSubscription]);
 
   const userGreetingName = useMemo(() => {
@@ -178,30 +202,77 @@ export default function MobileAppLauncher({
       const prefix = authUser.email.split('@')[0].replace(/[._-]+/g, ' ');
       return prefix.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     }
-    return 'User';
+    return 'Partner';
   }, [authUser]);
 
-  const companyLocation = authUser?.city || authUser?.location || authUser?.address || 'Corporate Office';
+  // Master Access Control Check:
+  // Evaluates both Role & Permission engine (canNav) and Tenant Subscription (isModuleSubscribed)
+  const hasAccess = (modId) => {
+    if (!modId) return false;
+    // SuperAdmin bypass
+    if (authUser?.role === 'superadmin' || authUser?.role === 'super_admin' || authUser?.isSuperAdmin) {
+      return true;
+    }
+    if (typeof canNav === 'function' && !canNav(modId)) {
+      return false;
+    }
+    if (typeof isModuleSubscribed === 'function' && !isModuleSubscribed(modId)) {
+      return false;
+    }
+    return true;
+  };
 
-  // Flatten available apps and filter by canNav engine permissions
+  // Merged modules list with optional dynamic extensions
+  const activeModuleRegistry = useMemo(() => {
+    const registry = [...SYSTEM_MODULES];
+    if (Array.isArray(customModules) && customModules.length > 0) {
+      customModules.forEach(cMod => {
+        const existingCat = registry.find(r => r.category === cMod.category);
+        if (existingCat) {
+          existingCat.items.push(cMod);
+        } else {
+          registry.push({ category: cMod.category || 'Custom Apps', items: [cMod] });
+        }
+      });
+    }
+    return registry;
+  }, [customModules]);
+
+  // Flatten available apps and filter STRICTLY by role & permissions
   const allAvailableApps = useMemo(() => {
     const list = [];
-    SYSTEM_MODULES.forEach(cat => {
+    activeModuleRegistry.forEach(cat => {
       cat.items.forEach(item => {
-        if (canNav(item.id)) {
+        if (hasAccess(item.id)) {
           list.push({ ...item, category: cat.category });
         }
       });
     });
     return list;
-  }, [canNav]);
+  }, [activeModuleRegistry, canNav, isModuleSubscribed, authUser]);
 
-  // Filtered categories for All Apps view
+  // Categories list with count of accessible apps
+  const categoryStats = useMemo(() => {
+    const stats = [{ name: 'All', count: allAvailableApps.length }];
+    activeModuleRegistry.forEach(cat => {
+      const allowedCount = cat.items.filter(item => hasAccess(item.id)).length;
+      if (allowedCount > 0) {
+        stats.push({ name: cat.category, count: allowedCount });
+      }
+    });
+    return stats;
+  }, [activeModuleRegistry, allAvailableApps]);
+
+  // Filtered categories for All Apps directory
   const filteredCategories = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return SYSTEM_MODULES.map(cat => {
+    return activeModuleRegistry.map(cat => {
+      // If a specific category tab is selected, ignore others
+      if (selectedCategory !== 'All' && cat.category !== selectedCategory) {
+        return { ...cat, items: [] };
+      }
       const visibleItems = cat.items.filter(item => {
-        if (!canNav(item.id)) return false;
+        if (!hasAccess(item.id)) return false;
         if (!q) return true;
         return (
           item.label.toLowerCase().includes(q) ||
@@ -211,15 +282,15 @@ export default function MobileAppLauncher({
       });
       return { ...cat, items: visibleItems };
     }).filter(cat => cat.items.length > 0);
-  }, [searchQuery, canNav]);
+  }, [activeModuleRegistry, searchQuery, selectedCategory, canNav, isModuleSubscribed, authUser]);
 
-  // Pinned items resolved from list
+  // Pinned items resolved from accessible apps list
   const pinnedItems = useMemo(() => {
     const map = new Map(allAvailableApps.map(app => [app.id, app]));
     return pinnedAppIds.map(id => map.get(id)).filter(Boolean);
   }, [pinnedAppIds, allAvailableApps]);
 
-  // Toggle app in bookmark selector
+  // Toggle app in pinned state
   const togglePinnedApp = (id) => {
     setPinnedAppIds(prev => {
       let next;
@@ -236,170 +307,253 @@ export default function MobileAppLauncher({
     });
   };
 
+  // Safe navigation handler
+  const handleNavigate = (targetId) => {
+    if (targetId === '__home__') {
+      setInternalView('home');
+      if (typeof onNavigate === 'function') onNavigate('__home__');
+      return;
+    }
+    if (targetId === '__all_apps__') {
+      setInternalView('all_apps');
+      if (typeof onNavigate === 'function') onNavigate('__all_apps__');
+      return;
+    }
+    if (typeof onNavigate === 'function') {
+      onNavigate(targetId);
+    }
+  };
+
+  const activeView = internalView || currentView || 'home';
+
   return (
     <div style={{
       width: '100%',
       minHeight: '100vh',
       background: '#f8fafc',
       color: '#0f172a',
-      fontFamily: "'Inter', -apple-system, sans-serif",
-      paddingBottom: isAndroidApp ? '20px' : '85px',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      paddingBottom: isAndroidApp ? '24px' : '90px',
       boxSizing: 'border-box',
       display: 'flex',
       flexDirection: 'column'
     }}>
-      {/* ── TOP HEADER: Dynamic Company Name, Location, Bell, Settings ── */}
+      {/* ── TOP HERO HEADER: Dark Emerald/Teal Gradient with Brand Identity ── */}
       <header style={{
-        background: '#ffffff',
-        padding: '12px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderBottom: '1px solid #e2e8f0',
+        background: 'linear-gradient(135deg, #03231d 0%, #064e43 100%)',
+        padding: '16px 16px 20px 16px',
+        color: '#ffffff',
+        boxShadow: '0 4px 20px rgba(3, 35, 29, 0.35)',
+        borderBottomLeftRadius: '22px',
+        borderBottomRightRadius: '22px',
         position: 'sticky',
         top: 0,
         zIndex: 50
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
-            background: '#064e43',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(6, 78, 67, 0.25)',
-            overflow: 'hidden',
-            flexShrink: 0
-          }}>
-            <img
-              src="/assets/ems-logo.png"
-              alt="EMS Logo"
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              onError={(e) => {
-                e.target.style.display = 'none';
+        {/* Top Control Bar: Logo, Workspace Pill, Bell & Settings */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '11px',
+              background: '#042a23',
+              border: '1.5px solid rgba(20, 210, 203, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+              overflow: 'hidden',
+              flexShrink: 0
+            }}>
+              <img
+                src="/assets/ems-logo.png"
+                alt="EMS Logo"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+              <span style={{ fontSize: '13px', fontWeight: '900', color: '#14d2cb' }}>EMS</span>
+            </div>
+
+            {/* Dynamic Workspace / Company Pill */}
+            <div
+              onClick={() => handleNavigate('settings')}
+              title="Current Workspace"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                borderRadius: '20px',
+                background: 'rgba(255, 255, 255, 0.12)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                maxWidth: '190px'
               }}
-            />
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {companyName}
+              </span>
+              <span style={{ fontSize: '9px', opacity: 0.8 }}>▾</span>
+            </div>
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '16px', fontWeight: '900', color: '#064e43', letterSpacing: '-0.3px' }}>
-                EMS
-              </span>
+
+          {/* Action Icons: Notification Bell & Settings */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => handleNavigate('notice_board')}
+              title="Notice Board & Bulletins"
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.12)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#ffffff',
+                position: 'relative'
+              }}
+            >
+              <Bell size={18} />
               <span style={{
-                fontSize: '9.5px',
-                fontWeight: '800',
-                padding: '1.5px 6px',
-                borderRadius: '4px',
-                background: currentView === 'all_apps' ? 'rgba(13, 148, 136, 0.12)' : 'rgba(6, 78, 67, 0.08)',
-                color: '#064e43',
-                letterSpacing: '0.4px',
-                textTransform: 'uppercase'
-              }}>
-                {currentView === 'all_apps' ? 'All Apps' : 'Workspace'}
-              </span>
-            </div>
-            <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '500', maxWidth: '210px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {companyName && companyName !== 'My Workspace' ? companyName : 'Employee Management Systems'}
-            </div>
+                position: 'absolute',
+                top: '6px',
+                right: '6px',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: '#ef4444',
+                border: '1.5px solid #064e43'
+              }} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleNavigate('settings')}
+              title="Settings"
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.12)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#ffffff'
+              }}
+            >
+              <Settings size={18} />
+            </button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Hero Row: User Greeting & Live Shift Status */}
+        <div style={{ marginTop: '16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <h1 style={{
+              fontSize: '21px',
+              fontWeight: '900',
+              color: '#ffffff',
+              margin: 0,
+              letterSpacing: '-0.3px',
+              lineHeight: 1.2
+            }}>
+              {activeView === 'home' ? `Welcome, ${userGreetingName}` : 'All Applications'}
+            </h1>
+            <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {activeView === 'home' ? (
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '3px 10px',
+                  borderRadius: '20px',
+                  background: 'rgba(16, 185, 129, 0.22)',
+                  border: '1px solid rgba(16, 185, 129, 0.45)',
+                  color: '#a7f3d0',
+                  fontSize: '11px',
+                  fontWeight: '700'
+                }}>
+                  <span style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    boxShadow: '0 0 6px #10b981'
+                  }} />
+                  <span>On Duty • 04h 12m</span>
+                </div>
+              ) : (
+                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', fontWeight: '500' }}>
+                  {allAvailableApps.length} active apps & modules available
+                </span>
+              )}
+            </div>
+          </div>
+
           <button
             type="button"
-            onClick={() => onNavigate('notice_board')}
-            title="Notifications"
+            onClick={() => window.location.reload()}
+            title="Refresh Data"
             style={{
-              width: '36px',
-              height: '36px',
+              width: '34px',
+              height: '34px',
               borderRadius: '50%',
-              background: '#f1f5f9',
-              border: 'none',
+              background: 'rgba(255, 255, 255, 0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              position: 'relative'
+              marginTop: '2px'
             }}
           >
-            <Bell size={18} color="#0f172a" />
-            <span style={{
-              position: 'absolute',
-              top: '6px',
-              right: '6px',
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: '#ef4444',
-              border: '1.5px solid #ffffff'
-            }} />
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigate('settings')}
-            title="Settings"
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '50%',
-              background: '#f1f5f9',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer'
-            }}
-          >
-            <Settings size={18} color="#0f172a" />
+            <RotateCw size={16} />
           </button>
         </div>
       </header>
 
       {/* ── VIEW 1: HOME DASHBOARD ── */}
-      {currentView === 'home' && (
+      {activeView === 'home' && (
         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Greeting Row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h1 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
-              Welcome, {userGreetingName}
-            </h1>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              title="Refresh Data"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#0d9488',
-                cursor: 'pointer',
-                padding: '4px'
-              }}
-            >
-              <RotateCw size={18} />
-            </button>
-          </div>
 
-          {/* 2x2 Metric Cards */}
+          {/* 2×2 Metric Cards */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: '12px'
           }}>
             {/* Metric 1: Tasks */}
-            <div style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '16px',
-              padding: '14px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-            }}>
+            <div
+              onClick={() => handleNavigate('tasks')}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '16px',
+                padding: '14px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>🕒 Today</span>
+                <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>🕒 Today</span>
                 <div style={{
-                  width: '26px',
-                  height: '26px',
+                  width: '28px',
+                  height: '28px',
                   borderRadius: '50%',
                   background: 'rgba(13, 148, 136, 0.12)',
                   display: 'flex',
@@ -410,109 +564,235 @@ export default function MobileAppLauncher({
                 </div>
               </div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Tasks</div>
-              <div style={{ fontSize: '14px', fontWeight: '800', color: '#0d9488', marginTop: '4px' }}>
-                {metrics.tasksText || 'All caught up'}
+              <div style={{ fontSize: '15px', fontWeight: '800', color: '#0d9488', marginTop: '4px' }}>
+                {metrics.tasksText || '3 Pending'}
               </div>
-              <div
-                onClick={() => onNavigate('tasks')}
-                style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700', marginTop: '6px', cursor: 'pointer' }}
-              >
+              <div style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700', marginTop: '6px' }}>
                 + Add a task
               </div>
             </div>
 
             {/* Metric 2: Pipeline Value */}
-            <div style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '16px',
-              padding: '14px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-            }}>
+            <div
+              onClick={() => handleNavigate('kanban')}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '16px',
+                padding: '14px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>🕒 Last 30 days</span>
+                <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>🕒 Last 30 days</span>
                 <div style={{
-                  width: '26px',
-                  height: '26px',
+                  width: '28px',
+                  height: '28px',
                   borderRadius: '50%',
                   background: 'rgba(16, 185, 129, 0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <DollarSign size={14} color="#10b981" />
+                  <TrendingUp size={14} color="#10b981" />
                 </div>
               </div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Pipeline Value</div>
-              <div style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a', marginTop: '4px' }}>
-                {metrics.pipelineValue || '₹5K'}
+              <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a', marginTop: '4px' }}>
+                {metrics.pipelineValue || '₹4.85L'}
+              </div>
+              <div style={{ fontSize: '11px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>
+                View Pipeline ↗
               </div>
             </div>
 
             {/* Metric 3: Unread Messages */}
-            <div style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '16px',
-              padding: '14px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-            }}>
+            <div
+              onClick={() => handleNavigate('conversations')}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '16px',
+                padding: '14px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>🕒 Last 30 days</span>
+                <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>🕒 Live CRM</span>
                 <div style={{
-                  width: '26px',
-                  height: '26px',
+                  width: '28px',
+                  height: '28px',
                   borderRadius: '50%',
-                  background: 'rgba(20, 210, 203, 0.15)',
+                  background: 'rgba(6, 182, 212, 0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <MessageSquare size={14} color="#0d9488" />
+                  <MessageSquare size={14} color="#06b6d4" />
                 </div>
               </div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Unread Messages</div>
-              <div style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a', marginTop: '4px' }}>
-                {metrics.unreadMessages || '5,287'}
+              <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a', marginTop: '4px' }}>
+                {metrics.unreadMessages || '14 New'}
+              </div>
+              <div style={{ fontSize: '11px', color: '#06b6d4', fontWeight: '700', marginTop: '6px' }}>
+                Open Inbox ↗
               </div>
             </div>
 
-            {/* Metric 4: Appointments */}
-            <div style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '16px',
-              padding: '14px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-            }}>
+            {/* Metric 4: Today Calls */}
+            <div
+              onClick={() => handleNavigate('telecalling')}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '16px',
+                padding: '14px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>🕒 Today</span>
+                <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>🕒 Today Shift</span>
                 <div style={{
-                  width: '26px',
-                  height: '26px',
+                  width: '28px',
+                  height: '28px',
                   borderRadius: '50%',
                   background: 'rgba(245, 158, 11, 0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <Calendar size={14} color="#f59e0b" />
+                  <PhoneCall size={14} color="#f59e0b" />
                 </div>
               </div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Appointments</div>
-              <div style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a', marginTop: '4px' }}>
-                {metrics.appointmentsCount || '0'}
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Today Calls</div>
+              <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a', marginTop: '4px' }}>
+                {metrics.appointmentsCount ? `${metrics.appointmentsCount} Appointments` : '42 / 50 Made'}
+              </div>
+              <div style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '700', marginTop: '6px' }}>
+                Dialer Log ↗
               </div>
             </div>
           </div>
 
-          {/* Pinned Apps Card */}
+          {/* ⚡ UP NEXT ACTION CARD */}
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '18px',
+            border: '1px solid #e2e8f0',
+            padding: '16px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  background: 'rgba(13, 148, 136, 0.1)',
+                  color: '#0d9488',
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  letterSpacing: '0.4px'
+                }}>
+                  ⚡ UP NEXT
+                </span>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>
+                  11:30 AM
+                </span>
+              </div>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: '700',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: '#fef3c7',
+                color: '#b45309'
+              }}>
+                High Priority
+              </span>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                Sneha Shah
+              </div>
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                ₹1.2L Deal Follow-up • Enterprise CRM Demo
+              </div>
+            </div>
+
+            {/* Direct 1-tap actionable triggers */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '2px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.AndroidApp && typeof window.AndroidApp.switchNativeTab === 'function') {
+                    window.AndroidApp.switchNativeTab(2);
+                  } else {
+                    handleNavigate('telecalling');
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  background: '#064e43',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(6, 78, 67, 0.25)'
+                }}
+              >
+                <PhoneCall size={16} />
+                <span>Call Now</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleNavigate('wa_live_web')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  background: '#22c55e',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(34, 197, 94, 0.25)'
+                }}
+              >
+                <MessageCircle size={16} />
+                <span>WhatsApp</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 📌 PINNED APPS CARD */}
           <div style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
             borderRadius: '20px',
             padding: '16px',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+            boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <span style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Pinned Apps</span>
@@ -525,10 +805,16 @@ export default function MobileAppLauncher({
                   border: 'none',
                   color: '#064e43',
                   cursor: 'pointer',
-                  padding: '4px'
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '12px',
+                  fontWeight: '700'
                 }}
               >
-                <Edit2 size={18} />
+                <Edit2 size={16} />
+                <span>Edit</span>
               </button>
             </div>
 
@@ -543,7 +829,7 @@ export default function MobileAppLauncher({
                 return (
                   <div
                     key={item.id}
-                    onClick={() => onNavigate(item.id)}
+                    onClick={() => handleNavigate(item.id)}
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -561,9 +847,10 @@ export default function MobileAppLauncher({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#064e43',
+                      color: item.color || '#064e43',
                       boxShadow: '0 2px 5px rgba(0,0,0,0.04)',
-                      transition: 'all 0.15s ease'
+                      transition: 'transform 0.15s ease',
+                      flexShrink: 0
                     }}>
                       <IconComp size={24} strokeWidth={1.8} />
                     </div>
@@ -620,13 +907,13 @@ export default function MobileAppLauncher({
             </div>
           </div>
 
-          {/* Quick Actions Card */}
+          {/* ⚡ QUICK ACTIONS CARD */}
           <div style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
             borderRadius: '20px',
             padding: '16px',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+            boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
           }}>
             <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', marginBottom: '16px' }}>
               Quick Actions
@@ -638,179 +925,196 @@ export default function MobileAppLauncher({
               gap: '14px 10px',
               textAlign: 'center'
             }}>
-              <div
-                onClick={() => onNavigate('contacts')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-              >
-                <div style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  border: '1.5px solid #cbd5e1',
-                  background: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#064e43'
-                }}>
-                  <Plus size={22} strokeWidth={2} />
+              {hasAccess('contacts') && (
+                <div
+                  onClick={() => handleNavigate('contacts')}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                >
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#0d9488'
+                  }}>
+                    <Plus size={22} strokeWidth={2} />
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>Add Contact</span>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>Add Contact</span>
-              </div>
+              )}
 
-              <div
-                onClick={() => {
-                  if (window.AndroidApp && typeof window.AndroidApp.switchNativeTab === 'function') {
-                    window.AndroidApp.switchNativeTab(2);
-                  } else {
-                    onNavigate('telecalling');
-                  }
-                }}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-              >
-                <div style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  border: '1.5px solid #cbd5e1',
-                  background: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#064e43'
-                }}>
-                  <Phone size={22} strokeWidth={1.8} />
+              {hasAccess('telecalling') && (
+                <div
+                  onClick={() => {
+                    if (window.AndroidApp && typeof window.AndroidApp.switchNativeTab === 'function') {
+                      window.AndroidApp.switchNativeTab(2);
+                    } else {
+                      handleNavigate('telecalling');
+                    }
+                  }}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                >
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#06b6d4'
+                  }}>
+                    <Phone size={22} strokeWidth={1.8} />
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>Make a Call</span>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>Make a Call</span>
-              </div>
+              )}
 
-              <div
-                onClick={() => onNavigate('wa_live_web')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-              >
-                <div style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  border: '1.5px solid #cbd5e1',
-                  background: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#064e43'
-                }}>
-                  <MessageSquare size={22} strokeWidth={1.8} />
+              {hasAccess('wa_live_web') && (
+                <div
+                  onClick={() => handleNavigate('wa_live_web')}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                >
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#22c55e'
+                  }}>
+                    <MessageSquare size={22} strokeWidth={1.8} />
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>New Message</span>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>New Message</span>
-              </div>
+              )}
 
-              <div
-                onClick={() => onNavigate('payroll')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-              >
-                <div style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  border: '1.5px solid #cbd5e1',
-                  background: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#064e43'
-                }}>
-                  <CreditCard size={22} strokeWidth={1.8} />
+              {hasAccess('kanban') && (
+                <div
+                  onClick={() => handleNavigate('kanban')}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                >
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#8b5cf6'
+                  }}>
+                    <Layers size={22} strokeWidth={1.8} />
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>New Deal</span>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>New Payment</span>
-              </div>
+              )}
 
-              <div
-                onClick={() => onNavigate('kanban')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-              >
-                <div style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  border: '1.5px solid #cbd5e1',
-                  background: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#064e43'
-                }}>
-                  <Layers size={22} strokeWidth={1.8} />
+              {hasAccess('my_attendance') && (
+                <div
+                  onClick={() => handleNavigate('my_attendance')}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                >
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#10b981'
+                  }}>
+                    <Clock size={22} strokeWidth={1.8} />
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>Punch In</span>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>New Deal</span>
-              </div>
+              )}
 
-              <div
-                onClick={() => onNavigate('my_attendance')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-              >
-                <div style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  border: '1.5px solid #cbd5e1',
-                  background: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#064e43'
-                }}>
-                  <Clock size={22} strokeWidth={1.8} />
+              {hasAccess('tasks') && (
+                <div
+                  onClick={() => handleNavigate('tasks')}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                >
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#f59e0b'
+                  }}>
+                    <ClipboardList size={22} strokeWidth={1.8} />
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>New Task</span>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>Punch In</span>
-              </div>
+              )}
 
-              <div
-                onClick={() => onNavigate('tasks')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-              >
-                <div style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  border: '1.5px solid #cbd5e1',
-                  background: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#064e43'
-                }}>
-                  <ClipboardList size={22} strokeWidth={1.8} />
+              {hasAccess('leaves') && (
+                <div
+                  onClick={() => handleNavigate('leaves')}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                >
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ec4899'
+                  }}>
+                    <Calendar size={22} strokeWidth={1.8} />
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>Apply Leave</span>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>New Task</span>
-              </div>
+              )}
 
-              <div
-                onClick={() => onNavigate('leaves')}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-              >
-                <div style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  border: '1.5px solid #cbd5e1',
-                  background: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#064e43'
-                }}>
-                  <Calendar size={22} strokeWidth={1.8} />
+              {hasAccess('payroll') && (
+                <div
+                  onClick={() => handleNavigate('payroll')}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                >
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#064e43'
+                  }}>
+                    <CreditCard size={22} strokeWidth={1.8} />
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>New Payment</span>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: '600', color: '#334155' }}>Apply Leave</span>
-              </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* ── VIEW 2: ALL APPS DIRECTORY ── */}
-      {currentView === 'all_apps' && (
+      {activeView === 'all_apps' && (
         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
           {/* Search Input Box */}
           <div style={{
             background: '#ffffff',
@@ -820,19 +1124,19 @@ export default function MobileAppLauncher({
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+            boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
           }}>
             <Search size={18} color="#64748b" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search Apps..."
+              placeholder="Search 28+ apps, tools & modules..."
               style={{
                 border: 'none',
                 outline: 'none',
                 width: '100%',
-                fontSize: '15px',
+                fontSize: '14.5px',
                 color: '#0f172a',
                 background: 'transparent'
               }}
@@ -848,7 +1152,57 @@ export default function MobileAppLauncher({
             )}
           </div>
 
-          {/* Categorized Cards with Circular Outline Icons */}
+          {/* Horizontal Category Filter Chips */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            overflowX: 'auto',
+            paddingBottom: '4px',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}>
+            {categoryStats.map(cat => {
+              const isSelected = selectedCategory === cat.name;
+              return (
+                <button
+                  key={cat.name}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat.name)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    borderRadius: '20px',
+                    background: isSelected ? '#064e43' : '#ffffff',
+                    color: isSelected ? '#ffffff' : '#475569',
+                    border: isSelected ? '1px solid #064e43' : '1px solid #e2e8f0',
+                    fontSize: '12px',
+                    fontWeight: isSelected ? '800' : '600',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    boxShadow: isSelected ? '0 2px 6px rgba(6, 78, 67, 0.25)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>{cat.name}</span>
+                  <span style={{
+                    fontSize: '10.5px',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    background: isSelected ? 'rgba(255,255,255,0.2)' : '#f1f5f9',
+                    color: isSelected ? '#ffffff' : '#64748b',
+                    fontWeight: '700'
+                  }}>
+                    {cat.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Categorized Cards with Circular Icons & Star / Pin toggle */}
           {filteredCategories.map(cat => (
             <div
               key={cat.category}
@@ -857,11 +1211,30 @@ export default function MobileAppLauncher({
                 border: '1px solid #e2e8f0',
                 borderRadius: '20px',
                 padding: '16px',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
               }}
             >
-              <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', marginBottom: '16px' }}>
-                {cat.category}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '16px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                    {cat.category}
+                  </span>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    background: '#f1f5f9',
+                    color: '#64748b'
+                  }}>
+                    {cat.items.length}
+                  </span>
+                </div>
               </div>
 
               <div style={{
@@ -872,45 +1245,86 @@ export default function MobileAppLauncher({
               }}>
                 {cat.items.map(item => {
                   const IconComp = item.icon || Grid;
+                  const isPinned = pinnedAppIds.includes(item.id);
                   return (
                     <div
                       key={item.id}
-                      onClick={() => onNavigate(item.id)}
                       style={{
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         gap: '8px',
-                        cursor: 'pointer'
+                        position: 'relative'
                       }}
                     >
-                      <div style={{
-                        width: '56px',
-                        height: '56px',
-                        borderRadius: '50%',
-                        border: '1.5px solid #cbd5e1',
-                        background: '#ffffff',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#064e43',
-                        boxShadow: '0 2px 5px rgba(0,0,0,0.03)',
-                        transition: 'all 0.15s ease'
-                      }}>
+                      {/* Interactive Circular Shortcut Button */}
+                      <div
+                        onClick={() => handleNavigate(item.id)}
+                        style={{
+                          width: '56px',
+                          height: '56px',
+                          borderRadius: '50%',
+                          border: '1.5px solid #cbd5e1',
+                          background: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: item.color || '#064e43',
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.03)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          position: 'relative'
+                        }}
+                      >
                         <IconComp size={24} strokeWidth={1.8} />
+
+                        {/* Direct Pin Star Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePinnedApp(item.id);
+                          }}
+                          title={isPinned ? 'Unpin from Home' : 'Pin to Home'}
+                          style={{
+                            position: 'absolute',
+                            top: '-4px',
+                            right: '-4px',
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            background: isPinned ? '#fef3c7' : '#ffffff',
+                            border: isPinned ? '1px solid #f59e0b' : '1px solid #cbd5e1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: isPinned ? '#f59e0b' : '#94a3b8',
+                            cursor: 'pointer',
+                            padding: 0,
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                          }}
+                        >
+                          <Star size={11} fill={isPinned ? '#f59e0b' : 'none'} />
+                        </button>
                       </div>
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        color: '#334155',
-                        lineHeight: '1.2',
-                        maxWidth: '72px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical'
-                      }}>
+
+                      {/* App Label */}
+                      <span
+                        onClick={() => handleNavigate(item.id)}
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: '#334155',
+                          lineHeight: '1.2',
+                          maxWidth: '72px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          cursor: 'pointer'
+                        }}
+                      >
                         {item.label}
                       </span>
                     </div>
@@ -928,33 +1342,56 @@ export default function MobileAppLauncher({
               fontSize: '14px',
               background: '#ffffff',
               borderRadius: '16px',
-              border: '1px solid #e2e8f0'
+              border: '1px solid #e2e8f0',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '12px'
             }}>
-              No apps found matching "{searchQuery}".
+              <div>No apps found matching "{searchQuery}".</div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('All');
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  background: '#064e43',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Clear Search & Filters
+              </button>
             </div>
           )}
         </div>
       )}
 
-      {/* ── FLOATING AI ACTION BUTTON (Teal Green Sparkle) ── */}
+      {/* ── FLOATING AI ACTION BUTTON (Emerald Teal Sparkle) ── */}
       <button
         type="button"
-        onClick={() => onNavigate('conversations')}
+        onClick={() => handleNavigate('conversations')}
         title="EMS AI Assistant"
         style={{
           position: 'fixed',
-          bottom: isAndroidApp ? '20px' : '80px',
+          bottom: isAndroidApp ? '20px' : '82px',
           right: '18px',
-          width: '50px',
-          height: '50px',
-          borderRadius: '14px',
+          width: '52px',
+          height: '52px',
+          borderRadius: '16px',
           background: 'linear-gradient(135deg, #064e43 0%, #0d9488 100%)',
           color: '#ffffff',
           border: 'none',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 4px 14px rgba(6, 78, 67, 0.4)',
+          boxShadow: '0 4px 16px rgba(6, 78, 67, 0.4)',
           cursor: 'pointer',
           zIndex: 60
         }}
@@ -962,14 +1399,14 @@ export default function MobileAppLauncher({
         <Sparkles size={24} />
       </button>
 
-      {/* ── FIXED BOTTOM NAVIGATION BAR: Only rendered for web preview; in Android Companion App the native bottom bar is used ── */}
+      {/* ── FIXED BOTTOM NAVIGATION BAR: Active for web preview / non-Android ── */}
       {!isAndroidApp && (
         <nav style={{
           position: 'fixed',
           bottom: 0,
           left: 0,
           right: 0,
-          height: '64px',
+          height: '66px',
           background: '#ffffff',
           borderTop: '1px solid #e2e8f0',
           display: 'flex',
@@ -977,11 +1414,11 @@ export default function MobileAppLauncher({
           justifyContent: 'space-around',
           padding: '4px 8px',
           zIndex: 70,
-          boxShadow: '0 -2px 10px rgba(0,0,0,0.03)'
+          boxShadow: '0 -2px 12px rgba(0,0,0,0.04)'
         }}>
           {/* 1. Home Tab */}
           <div
-            onClick={() => onNavigate('__home__')}
+            onClick={() => handleNavigate('__home__')}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -990,19 +1427,19 @@ export default function MobileAppLauncher({
               cursor: 'pointer',
               padding: '6px 14px',
               borderRadius: '20px',
-              background: currentView === 'home' ? 'rgba(13, 148, 136, 0.14)' : 'transparent',
-              color: currentView === 'home' ? '#064e43' : '#64748b'
+              background: activeView === 'home' ? 'rgba(13, 148, 136, 0.14)' : 'transparent',
+              color: activeView === 'home' ? '#064e43' : '#64748b'
             }}
           >
-            <Home size={20} strokeWidth={currentView === 'home' ? 2.2 : 1.8} />
-            <span style={{ fontSize: '11px', fontWeight: currentView === 'home' ? '800' : '600', marginTop: '2px' }}>
+            <Home size={20} strokeWidth={activeView === 'home' ? 2.2 : 1.8} />
+            <span style={{ fontSize: '11px', fontWeight: activeView === 'home' ? '800' : '600', marginTop: '2px' }}>
               Home
             </span>
           </div>
 
           {/* 2. Recent Tab (Untouched Telecalling) */}
           <div
-            onClick={() => onNavigate('telecalling')}
+            onClick={() => handleNavigate('telecalling')}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -1023,7 +1460,7 @@ export default function MobileAppLauncher({
 
           {/* 3. Dialer Tab (Untouched Dialer) */}
           <div
-            onClick={() => onNavigate('telecalling')}
+            onClick={() => handleNavigate('telecalling')}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -1044,7 +1481,7 @@ export default function MobileAppLauncher({
 
           {/* 4. Contact Tab (Untouched Contacts) */}
           <div
-            onClick={() => onNavigate('contacts')}
+            onClick={() => handleNavigate('contacts')}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -1065,7 +1502,7 @@ export default function MobileAppLauncher({
 
           {/* 5. All Apps Tab */}
           <div
-            onClick={() => onNavigate('__all_apps__')}
+            onClick={() => handleNavigate('__all_apps__')}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -1074,12 +1511,12 @@ export default function MobileAppLauncher({
               cursor: 'pointer',
               padding: '6px 14px',
               borderRadius: '20px',
-              background: currentView === 'all_apps' ? 'rgba(13, 148, 136, 0.14)' : 'transparent',
-              color: currentView === 'all_apps' ? '#064e43' : '#64748b'
+              background: activeView === 'all_apps' ? 'rgba(13, 148, 136, 0.14)' : 'transparent',
+              color: activeView === 'all_apps' ? '#064e43' : '#64748b'
             }}
           >
-            <Grid size={20} strokeWidth={currentView === 'all_apps' ? 2.2 : 1.8} />
-            <span style={{ fontSize: '11px', fontWeight: currentView === 'all_apps' ? '800' : '600', marginTop: '2px' }}>
+            <Grid size={20} strokeWidth={activeView === 'all_apps' ? 2.2 : 1.8} />
+            <span style={{ fontSize: '11px', fontWeight: activeView === 'all_apps' ? '800' : '600', marginTop: '2px' }}>
               All Apps
             </span>
           </div>
@@ -1105,7 +1542,7 @@ export default function MobileAppLauncher({
             borderTopLeftRadius: '24px',
             borderTopRightRadius: '24px',
             padding: '20px 16px',
-            maxHeight: '80vh',
+            maxHeight: '82vh',
             display: 'flex',
             flexDirection: 'column',
             gap: '14px',
@@ -1118,13 +1555,13 @@ export default function MobileAppLauncher({
                   Customize Pinned Apps
                 </h3>
                 <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
-                  Select apps to pin on your Home screen
+                  Select apps to pin on your Home screen ({pinnedItems.length} pinned)
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsBookmarkModalOpen(false)}
-                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
               >
                 <X size={20} />
               </button>
@@ -1199,7 +1636,7 @@ export default function MobileAppLauncher({
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: '#064e43'
+                          color: app.color || '#064e43'
                         }}>
                           <IconComp size={20} strokeWidth={1.8} />
                         </div>
@@ -1246,7 +1683,7 @@ export default function MobileAppLauncher({
                 marginTop: '6px'
               }}
             >
-              Save Pinned Apps ({pinnedItems.length})
+              Done ({pinnedItems.length} Pinned)
             </button>
           </div>
         </div>

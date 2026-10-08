@@ -7284,6 +7284,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           currentView={mobileActiveView}
           onNavigate={handleMobileNav}
           canNav={canNav}
+          isModuleSubscribed={isModuleSubscribed}
           authUser={effectiveAuthUser}
           tenantSubscription={tenantSubscription}
           metrics={{
