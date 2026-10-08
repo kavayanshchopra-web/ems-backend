@@ -870,7 +870,19 @@ export default function MobileAppLauncher({
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'row',
+                gap: '12px',
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                scrollSnapType: 'x mandatory',
+                WebkitOverflowScrolling: 'touch',
+                paddingBottom: '8px',
+                paddingTop: '2px',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
+              }}>
                 {resolvedFollowUps.map((item, idx) => {
                   const isOverdue = item.category === 'overdue';
                   const isToday = item.category === 'today';
@@ -882,14 +894,19 @@ export default function MobileAppLauncher({
                     <div
                       key={item.id || idx}
                       style={{
+                        scrollSnapAlign: 'start',
+                        flex: resolvedFollowUps.length > 1 ? '0 0 calc(100% - 28px)' : '0 0 100%',
+                        minWidth: resolvedFollowUps.length > 1 ? 'calc(100% - 28px)' : '100%',
+                        maxWidth: resolvedFollowUps.length > 1 ? 'calc(100% - 28px)' : '100%',
                         background: '#ffffff',
-                        borderRadius: '16px',
-                        border: isOverdue ? '1px solid #fca5a5' : '1px solid #e2e8f0',
-                        padding: '14px 16px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                        borderRadius: '18px',
+                        border: isOverdue ? '1.5px solid #fca5a5' : isToday ? '1.5px solid #a7f3d0' : '1px solid #e2e8f0',
+                        padding: '16px',
+                        boxShadow: '0 4px 14px rgba(0,0,0,0.04)',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '10px'
+                        gap: '10px',
+                        boxSizing: 'border-box'
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -904,23 +921,30 @@ export default function MobileAppLauncher({
                         }}>
                           {item.timeLabel || (isOverdue ? '⚠️ Overdue' : isToday ? '🕒 Today' : '📅 Upcoming')}
                         </span>
-                        {item.priority && (
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            background: item.priority === 'High Priority' ? '#fef3c7' : '#f1f5f9',
-                            color: item.priority === 'High Priority' ? '#b45309' : '#475569'
-                          }}>
-                            {item.priority}
-                          </span>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {resolvedFollowUps.length > 1 && (
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8' }}>
+                              {idx + 1} of {resolvedFollowUps.length} 👉
+                            </span>
+                          )}
+                          {item.priority && (
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              background: item.priority === 'High Priority' ? '#fef3c7' : '#f1f5f9',
+                              color: item.priority === 'High Priority' ? '#b45309' : '#475569'
+                            }}>
+                              {item.priority}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                          <span style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
                             {item.name}
                           </span>
                           {item.dealText && (
@@ -930,14 +954,14 @@ export default function MobileAppLauncher({
                           )}
                         </div>
                         {item.subtitle && (
-                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>
+                          <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '3px' }}>
                             {item.subtitle}
                           </div>
                         )}
                       </div>
 
                       {/* Direct 1-tap actionable triggers for real lead (>= 44px) */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '2px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '4px' }}>
                         <button
                           type="button"
                           onClick={() => {

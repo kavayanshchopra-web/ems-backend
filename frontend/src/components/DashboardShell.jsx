@@ -7387,26 +7387,53 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             stage
           });
         }
-      } else if (c.pipeline_stage && c.pipeline_stage !== 'lost' && c.pipeline_stage !== 'archived') {
-        // Active pipeline leads
-        list.push({
-          id: `c_lead_${c.id}`,
-          contactId: c.id,
-          name,
-          phone,
-          subtitle: `${stage} • Active Pipeline Lead${dealText ? ` • ${dealText}` : ''}`,
-          timestamp: new Date(c.updated_at || c.created_at || now).getTime(),
-          timeLabel: 'Pipeline Lead',
-          category: 'active',
-          categoryRank: 4,
-          priority: 'Active',
-          dealText,
-          stage
-        });
       }
     });
 
-    // 2. Process scheduled messages
+    // 2. Process tasks that have a scheduled due date / follow up
+    (tasks || []).forEach(t => {
+      if (t.status === 'Done' || t.status === 'Completed' || t.status === 'closed') return;
+      const rawDate = t.dueDate || t.due_date || t.date || t.due || t.reminder_date;
+      if (!rawDate) return;
+      const d = new Date(rawDate);
+      if (isNaN(d.getTime())) return;
+      const timeMs = d.getTime();
+      let category = 'upcoming';
+      let timeLabel = '';
+
+      if (timeMs < todayStart) {
+        category = 'overdue';
+        timeLabel = `Overdue • ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+      } else if (timeMs <= todayEnd) {
+        category = 'today';
+        timeLabel = `Today • ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      } else {
+        category = 'upcoming';
+        timeLabel = `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+      }
+
+      const linkedContact = (contacts || []).find(c => c.id === t.contactId || c.id === t.contact_id || (t.phone && c.phone === t.phone));
+      const name = linkedContact?.name || linkedContact?.custom_name || t.contactName || t.title || 'Task Follow-up';
+      const phone = linkedContact?.phone || t.phone || '';
+
+      list.push({
+        id: `t_${t.id}`,
+        taskId: t.id,
+        contactId: linkedContact?.id || null,
+        name,
+        phone,
+        subtitle: t.title ? `Task: ${t.title}` : (t.description || 'Follow-up Task'),
+        timestamp: timeMs,
+        timeLabel,
+        category,
+        categoryRank: category === 'overdue' ? 1 : category === 'today' ? 2 : 3,
+        priority: t.priority ? `${t.priority} Priority` : (category === 'overdue' ? 'High Priority' : 'Follow-up Task'),
+        dealText: '',
+        stage: 'Task'
+      });
+    });
+
+    // 3. Process scheduled messages
     (scheduledMessages || []).forEach(s => {
       const sendTimeMs = (s.sendAt ? Number(s.sendAt) * 1000 : new Date(s.scheduled_at || s.scheduledAt).getTime());
       if (sendTimeMs && !isNaN(sendTimeMs)) {
@@ -7444,14 +7471,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     });
 
-    // Sort: Category rank first (Overdue -> Today -> Upcoming -> Active), then by timestamp ascending!
+    // Sort: Category rank first (Overdue -> Today -> Upcoming), then by timestamp ascending!
     list.sort((a, b) => {
       if (a.categoryRank !== b.categoryRank) return a.categoryRank - b.categoryRank;
       return a.timestamp - b.timestamp;
     });
 
     return list;
-  }, [contacts, scheduledMessages]);
+  }, [contacts, tasks, scheduledMessages]);
 
   const realUpNext = realPipelineFollowUps[0] || null;
 
