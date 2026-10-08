@@ -872,15 +872,21 @@ export default function ConversationsPage({
   // Company primary session (official company line)
   const companyPrimarySession = useMemo(() => {
     if (!Array.isArray(localSessions) || localSessions.length === 0) return null;
+    const isPrimaryName = (s) => s.id === 'primary' || s.id === `session_${companyId}_primary` || s.id?.includes('primary');
     // 1. Primary session that is actually connected
-    const connectedPrimary = localSessions.find(s => (s.id === `session_${companyId}_primary` || s.id?.includes('_primary')) && s.status === 'connected');
+    const connectedPrimary = localSessions.find(s => isPrimaryName(s) && s.status === 'connected');
     if (connectedPrimary) return connectedPrimary;
     // 2. Any company session that is connected
     const anyConnected = localSessions.find(s => s.status === 'connected');
     if (anyConnected) return anyConnected;
-    // 3. Fallbacks if nothing is currently connected
-    return localSessions.find(s => s.id === `session_${companyId}_primary`)
-      || localSessions.find(s => s.id?.includes('_primary'))
+    // 3. Primary session with ready QR code
+    const qrPrimary = localSessions.find(s => isPrimaryName(s) && (s.status === 'qr_ready' || Boolean(s.qr_code)));
+    if (qrPrimary) return qrPrimary;
+    // 4. Any session with ready QR code
+    const anyQr = localSessions.find(s => s.status === 'qr_ready' || Boolean(s.qr_code));
+    if (anyQr) return anyQr;
+    // 5. Fallbacks if nothing is currently connected or has QR
+    return localSessions.find(s => isPrimaryName(s))
       || localSessions[0] || null;
   }, [localSessions, companyId]);
 
@@ -915,12 +921,19 @@ export default function ConversationsPage({
     return myDedicatedSession;
   }, [isOwnerOrAdmin, companyPrimarySession, myDedicatedSession]);
 
+  // modalQrCode: Instant QR code from active QR session or any session holding a generated QR
+  const modalQrCode = useMemo(() => {
+    if (activeQrSession?.qr_code) return activeQrSession.qr_code;
+    const anyWithQr = localSessions.find(s => s.qr_code);
+    return anyWithQr?.qr_code || null;
+  }, [activeQrSession, localSessions]);
+
   const isConnected = primarySession?.status === 'connected';
   const isDedicatedConnected = myDedicatedSession?.status === 'connected';
   const isCompanyConnected = companyPrimarySession?.status === 'connected';
 
   const isModalConnected = activeQrSession?.status === 'connected';
-  const isModalQRReady = (activeQrSession?.status === 'qr_ready' || Boolean(activeQrSession?.qr_code)) && Boolean(activeQrSession?.qr_code);
+  const isModalQRReady = Boolean(modalQrCode);
   const isModalConnecting = activeQrSession?.status === 'connecting' || qrLoading;
 
   const connectedPhone = primarySession?.phone_number || primarySession?.phoneNumber || '';
@@ -1015,7 +1028,7 @@ export default function ConversationsPage({
       let targetId = sessId;
       if (!targetId) {
         targetId = isOwnerOrAdmin
-          ? (companyPrimarySession?.id || `session_${companyId}_primary`)
+          ? (companyPrimarySession?.id || (currentList.find(s => s.id === 'primary' || s.id?.includes('primary'))?.id) || `session_${companyId}_primary`)
           : myTargetSessionId;
       }
 
@@ -1053,7 +1066,21 @@ export default function ConversationsPage({
           });
         }
         if (startRes.ok) {
-          setQrActionMsg('Connecting to Cloud Gateway... QR will appear momentarily.');
+          const startData = await startRes.json().catch(() => ({}));
+          if (startData?.qr_code) {
+            setLocalSessions(prev => {
+              const list = prev || [];
+              const matched = list.some(s => s.id === (startData.id || targetId));
+              if (matched) {
+                return list.map(s => s.id === (startData.id || targetId) ? { ...s, qr_code: startData.qr_code, status: 'qr_ready' } : s);
+              }
+              return [{ id: startData.id || targetId, status: 'qr_ready', qr_code: startData.qr_code, phone_name: 'Primary WhatsApp' }, ...list];
+            });
+            setQrActionMsg('Scan the QR code below with your WhatsApp app.');
+            setQrLoading(false);
+          } else {
+            setQrActionMsg('Connecting to Cloud Gateway... QR will appear momentarily.');
+          }
         }
       }
       setTimeout(fetchCurrentSessions, 600);
@@ -5858,10 +5885,10 @@ export default function ConversationsPage({
                     boxSizing: 'border-box',
                     position: 'relative'
                   }}>
-                    {activeQrSession?.qr_code ? (
+                    {modalQrCode ? (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                         <img
-                          src={activeQrSession.qr_code}
+                          src={modalQrCode}
                           alt="Scan WhatsApp QR"
                           style={{ width: '210px', height: '210px', objectFit: 'contain', display: 'block', borderRadius: '8px' }}
                         />

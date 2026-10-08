@@ -1518,17 +1518,25 @@ export default function setupRoutes(io) {
 
   // Start/Reconnect a session
   router.post(['/sessions/start/:id', '/api/sessions/start/:id'], async (req, res) => {
-    const { id } = req.params;
+    let { id } = req.params;
     try {
       const activeTenant = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1, 10) || 1;
       let session = await getSession(id);
+      if (!session && (id === `session_${activeTenant}_primary` || id === 'primary')) {
+        const altId = id === 'primary' ? `session_${activeTenant}_primary` : 'primary';
+        const altSession = await getSession(altId);
+        if (altSession) {
+          id = altId;
+          session = altSession;
+        }
+      }
       if (!session) {
         const phoneName = req.body?.phoneName || (id.includes('_emp_') ? 'Employee WhatsApp Line' : 'Primary WhatsApp Line');
         await saveSession(id, phoneName, activeTenant);
         session = await getSession(id);
       }
 
-      if (session && parseInt(session.tenant_id, 10) !== activeTenant && req.user?.role !== 'superadmin') {
+      if (session && session.tenant_id && parseInt(session.tenant_id, 10) !== activeTenant && req.user?.role !== 'superadmin') {
         return res.status(403).json({ error: 'Access denied to this session' });
       }
 

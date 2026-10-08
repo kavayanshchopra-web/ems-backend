@@ -1437,8 +1437,8 @@ export async function getSession(id) {
 export async function getAllSessions(tenantId = 1) {
   const tid = parseInt(tenantId, 10) || 1;
   return await db.all(
-    `SELECT * FROM whatsapp_sessions WHERE tenant_id = ? OR id LIKE ? ORDER BY created_at DESC`, 
-    [tid, `session_${tid}_%`]
+    `SELECT * FROM whatsapp_sessions WHERE tenant_id = ? OR (tenant_id IS NULL AND ? = 1) OR (id = 'primary' AND ? = 1) OR id LIKE ? ORDER BY created_at DESC`, 
+    [tid, tid, tid, `session_${tid}_%`]
   );
 }
 
@@ -2351,7 +2351,7 @@ export async function findRecentCallLog(tenantId = 1, customerPhone, callId = ''
   if (customerPhone) {
     const cleanPhone = String(customerPhone).replace(/\D/g, '').slice(-10);
     return await db.get(
-      `SELECT * FROM call_logs WHERE tenant_id = ? AND customer_phone LIKE ? AND created_at >= datetime('now', '-15 minutes') ORDER BY id DESC LIMIT 1`,
+      `SELECT * FROM call_logs WHERE tenant_id = ? AND customer_phone LIKE ? AND (disposition = 'Pending' OR disposition IS NULL OR disposition = '') AND created_at >= datetime('now', '-5 minutes') ORDER BY id DESC LIMIT 1`,
       [tenantId, `%${cleanPhone}%`]
     );
   }
