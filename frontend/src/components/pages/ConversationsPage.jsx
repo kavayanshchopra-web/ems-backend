@@ -3229,16 +3229,9 @@ export default function ConversationsPage({
                 isBelowThreshold: res.balance <= prev.minThreshold,
                 isDepleted: res.balance <= 0
               }));
-              if (showToast && isOwnerOrAdmin) {
-                showToast(`💬 Sent (-₹${(res.deducted || (wasTemplate ? 0.20 : 0.10)).toFixed(2)} debited) | Bal: ₹${res.balance.toFixed(2)}`, 'success');
-              }
             }
           }
         }).catch(wErr => console.warn('[Frontend Wallet Deduct Notice]:', wErr.message));
-
-        if (showToast && !window.__walletToastShown) {
-          showToast(sendMethod === 'backend_api' ? '💬 WhatsApp message sent' : '⚡ WhatsApp sent & saved to CRM', 'success');
-        }
       } else {
         // Mark message status as error
         setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 'error' } : m));
