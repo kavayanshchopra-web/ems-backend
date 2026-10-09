@@ -354,7 +354,8 @@ export default function ConversationsPage({
   contacts: propContacts = [],
   sessions = [],
   activePipelineStages = [],
-  showToast = () => {}
+  showToast = () => {},
+  targetContact = null
 }) {
   let numericCompanyId = Number(authUser?.tenant_id || authUser?.company_id);
   if (isNaN(numericCompanyId) || numericCompanyId <= 0) {
@@ -3144,6 +3145,97 @@ export default function ConversationsPage({
       }).catch(() => {});
     }
   };
+
+  // 6b. Deep-link Contact Auto-Selection Engine (from Mobile Dashboard / Kanban / Follow-ups)
+  const lastTargetKeyRef = useRef(null);
+
+  const openOrSelectContact = useCallback((target) => {
+    if (!target) return;
+    const targetPhone = String(target.phone || target.rawPhone || target.id || '').replace(/\D/g, '');
+    const norm10 = targetPhone.length >= 7 ? targetPhone.slice(-10) : '';
+
+    // 1. Match against existing conversation roster
+    let matched = (conversationsList || []).find(c => {
+      if (norm10 && c.normPhone10 === norm10) return true;
+      if (target.id && (c.id === target.id || String(c.id).includes(target.id))) return true;
+      const cPhone = String(c.phone || c.rawPhone || c.id || '').replace(/\D/g, '');
+      if (norm10 && cPhone.endsWith(norm10)) return true;
+      if (target.email && c.email && c.email.toLowerCase() === target.email.toLowerCase()) return true;
+      if (target.name && c.name && c.name.toLowerCase() === target.name.toLowerCase()) return true;
+      return false;
+    });
+
+    if (!matched) {
+      // 2. Synthesize clean contact record if not yet loaded in active roster
+      const intl = targetPhone.length === 10 ? `91${targetPhone}` : targetPhone;
+      const jid = intl ? `${intl}@s.whatsapp.net` : (target.id || `lead_${Date.now()}`);
+      matched = {
+        id: jid,
+        tenant_id: companyId,
+        tenantId: companyId,
+        name: target.name || (norm10 ? `+91 ${norm10}` : 'Contact'),
+        phone: norm10 ? `+91 ${norm10}` : (target.phone || '—'),
+        rawPhone: targetPhone,
+        normPhone10: norm10,
+        email: target.email || '',
+        unreadCount: 0,
+        lastMessage: '',
+        lastMessageTime: Date.now(),
+        stage: target.stage || target.status || 'New Leads',
+        tags: target.tags || target.labels || [],
+        assigned_to: userEmpId || userName || ''
+      };
+
+      setConversationsList(prev => [matched, ...(prev || [])]);
+    }
+
+    // 3. Select this contact & immediately display the chat view on mobile
+    handleSelectContact(matched);
+    if (typeof fetchMessagesForContact === 'function') {
+      try { fetchMessagesForContact(matched, true); } catch (e) {}
+    }
+    if (typeof switchMobileTab === 'function') {
+      switchMobileTab('chat');
+    } else {
+      setMobileTab('chat');
+    }
+  }, [conversationsList, switchMobileTab, companyId, userEmpId, userName, fetchMessagesForContact]);
+
+  // Read pending chat lead from localStorage (e.g. from MobileAppLauncher)
+  useEffect(() => {
+    try {
+      const pendingStr = localStorage.getItem('omniflow_pending_chat_lead');
+      if (pendingStr) {
+        localStorage.removeItem('omniflow_pending_chat_lead');
+        const parsed = JSON.parse(pendingStr);
+        if (parsed) {
+          openOrSelectContact(parsed);
+        }
+      }
+    } catch (e) {}
+  }, [openOrSelectContact]);
+
+  useEffect(() => {
+    const handleOpenChatEvent = (e) => {
+      if (e.detail) {
+        openOrSelectContact(e.detail);
+      }
+    };
+    window.addEventListener('omniflow:open_conversation_chat', handleOpenChatEvent);
+    return () => {
+      window.removeEventListener('omniflow:open_conversation_chat', handleOpenChatEvent);
+    };
+  }, [openOrSelectContact]);
+
+  useEffect(() => {
+    if (targetContact) {
+      const key = `${targetContact.id || ''}_${targetContact.phone || ''}`;
+      if (lastTargetKeyRef.current !== key) {
+        lastTargetKeyRef.current = key;
+        openOrSelectContact(targetContact);
+      }
+    }
+  }, [targetContact, openOrSelectContact]);
 
   // 7. Handle Stage Change
   const handleStageChange = async (newStage) => {

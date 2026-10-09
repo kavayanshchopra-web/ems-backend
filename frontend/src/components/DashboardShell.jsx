@@ -974,14 +974,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     };
   }, []);
 
-  const handleMobileNav = (target) => {
+  const handleMobileNav = (target, extraData = null) => {
     if (target === '__home__') {
       setMobileActiveView('home');
     } else if (target === '__all_apps__') {
       setMobileActiveView('all_apps');
     } else {
-      setActiveTab(target);
+      const effectiveTarget = target === 'wa_live_web' ? 'conversations' : target;
+      setActiveTab(effectiveTarget);
       setMobileActiveView('page');
+      if (extraData && (extraData.phone || extraData.id || extraData.name)) {
+        handleOpenChatWithLead(extraData);
+      }
     }
   };
   // Password visibility & Forgot Password modal states
@@ -7090,8 +7094,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const timeB = b.last_message_time || 0;
     return timeB - timeA;
   });
-  // Kanban groups stages are now state-driven
-  const handleOpenChatWithLead = (record) => {
+  // Kanban & Lead follow-up quick chat router (strictly routes to Conversations hub)
+  function handleOpenChatWithLead(record) {
     if (!record) return;
     const cleanPhone = (record.phone || '').replace(/[^0-9+]/g, '');
     let foundContact = (contacts || []).find(c =>
@@ -7100,8 +7104,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       (record.email && c.email && c.email.toLowerCase() === record.email.toLowerCase())
     );
     if (!foundContact) {
+      const rawP = cleanPhone || record.phone || '';
+      const intl = rawP.length === 10 ? `91${rawP}` : rawP;
       foundContact = {
-        id: record.phone || String(record.id) || `lead_${Date.now()}`,
+        id: intl ? `${intl}@s.whatsapp.net` : (String(record.id) || `lead_${Date.now()}`),
         name: record.name || record.clientName || record.companyName || record.title || (record.first_name ? `${record.first_name || ''} ${record.last_name || ''}`.trim() : null) || 'New Lead',
         phone: cleanPhone || record.phone || '',
         email: record.email || '',
@@ -7113,9 +7119,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setContacts(prev => [foundContact, ...(prev || [])]);
     }
     setActiveContact(foundContact);
-    setActiveTab('wa_live_web');
-    showToast(`Opening inbox chat for ${foundContact.name || foundContact.phone}`, 'success');
-  };
+    setActiveTab('conversations');
+    if (isAndroidApp) {
+      setMobileActiveView('page');
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('omniflow:open_conversation_chat', {
+        detail: foundContact
+      }));
+    }
+    showToast(`Opening conversation for ${foundContact.name || foundContact.phone}`, 'success');
+  }
   const [permissionsVersion, setPermissionsVersion] = useState(0);
   useEffect(() => {
     const handlePermissionsUpdated = () => {
@@ -8786,6 +8800,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 sessions={sessions}
                 activePipelineStages={stages}
                 showToast={showToast}
+                targetContact={activeContact}
               />
             </Suspense>
           </div>

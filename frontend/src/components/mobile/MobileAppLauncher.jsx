@@ -50,8 +50,8 @@ export const SYSTEM_MODULES = [
     category: 'CRM & Sales',
     items: [
       { id: 'contacts', label: 'Contacts', icon: Users, desc: 'Clients & Leads Database', color: '#0d9488' },
-      { id: 'conversations', label: 'Conversations', icon: MessageSquare, desc: 'Omnichannel Inbox', color: '#10b981' },
-      { id: 'wa_live_web', label: 'WhatsApp', icon: MessageCircle, desc: 'Live WhatsApp Web', color: '#22c55e' },
+      { id: 'conversations', label: 'WhatsApp', icon: MessageCircle, desc: 'Omnichannel WhatsApp CRM', color: '#22c55e' },
+      { id: 'wa_live_web', label: 'WhatsApp Web', icon: MessageSquare, desc: 'Live WhatsApp Web', color: '#10b981' },
       { id: 'kanban', label: 'Deals CRM', icon: Layers, desc: 'Visual Sales Pipeline', color: '#8b5cf6' },
       { id: 'telecalling', label: 'Phone System', icon: PhoneCall, desc: 'SIM & Cloud Dialer', color: '#06b6d4' },
       { id: 'automations_sandbox', label: 'Automations', icon: Zap, desc: 'Event Workflows & Triggers', color: '#f59e0b' },
@@ -120,7 +120,7 @@ export const SYSTEM_MODULES = [
   }
 ];
 
-const DEFAULT_PINNED_IDS = ['contacts', 'kanban', 'telecalling', 'wa_live_web', 'my_attendance', 'tasks'];
+const DEFAULT_PINNED_IDS = ['contacts', 'kanban', 'telecalling', 'conversations', 'my_attendance', 'tasks'];
 
 export default function MobileAppLauncher({
   currentView = 'home', // 'home' | 'all_apps'
@@ -154,7 +154,9 @@ export default function MobileAppLauncher({
       const saved = localStorage.getItem('omniflow_pinned_apps');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(id => id === 'wa_live_web' ? 'conversations' : id);
+        }
       }
     } catch (e) {}
     return DEFAULT_PINNED_IDS;
@@ -326,8 +328,8 @@ export default function MobileAppLauncher({
     });
   };
 
-  // Safe navigation handler
-  const handleNavigate = (targetId) => {
+  // Safe navigation handler (strictly routes WhatsApp requests to Conversations hub)
+  const handleNavigate = (targetId, extraData = null) => {
     if (targetId === '__home__') {
       setInternalView('home');
       if (typeof onNavigate === 'function') onNavigate('__home__');
@@ -338,8 +340,10 @@ export default function MobileAppLauncher({
       if (typeof onNavigate === 'function') onNavigate('__all_apps__');
       return;
     }
+    // Route wa_live_web to unified Conversations CRM section
+    const effectiveTarget = targetId === 'wa_live_web' ? 'conversations' : targetId;
     if (typeof onNavigate === 'function') {
-      onNavigate(targetId);
+      onNavigate(effectiveTarget, extraData);
     }
   };
 
@@ -1000,7 +1004,25 @@ export default function MobileAppLauncher({
 
                         <button
                           type="button"
-                          onClick={() => handleNavigate('wa_live_web')}
+                          onClick={() => {
+                            const leadData = {
+                              id: item.contactId || item.id,
+                              contactId: item.contactId || item.id,
+                              phone: item.phone || '',
+                              name: item.name || '',
+                              subtitle: item.subtitle || '',
+                              stage: item.stage || 'lead'
+                            };
+                            if (typeof window !== 'undefined') {
+                              try {
+                                localStorage.setItem('omniflow_pending_chat_lead', JSON.stringify(leadData));
+                              } catch (e) {}
+                              window.dispatchEvent(new CustomEvent('omniflow:open_conversation_chat', {
+                                detail: leadData
+                              }));
+                            }
+                            handleNavigate('conversations', leadData);
+                          }}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -1218,9 +1240,9 @@ export default function MobileAppLauncher({
                 </div>
               )}
 
-              {hasAccess('wa_live_web') && (
+              {hasAccess('conversations') && (
                 <div
-                  onClick={() => handleNavigate('wa_live_web')}
+                  onClick={() => handleNavigate('conversations')}
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                 >
                   <div style={{
