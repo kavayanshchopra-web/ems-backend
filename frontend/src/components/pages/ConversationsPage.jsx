@@ -882,13 +882,6 @@ export default function ConversationsPage({
     }
   }, [sessions]);
 
-  // Turn off loading once a QR code is detected in session
-  useEffect(() => {
-    if (modalQrCode) {
-      setQrLoading(false);
-    }
-  }, [modalQrCode]);
-
   const activeTenantId = String(authUser?.tenantId || authUser?.companyId || companyId || '1');
 
   // Multi-Agent & Employee WhatsApp Session Scoping
@@ -961,6 +954,13 @@ export default function ConversationsPage({
     const anyWithQr = localSessions.find(s => s.qr_code);
     return anyWithQr?.qr_code || null;
   }, [activeQrSession, localSessions]);
+
+  // Turn off loading once a QR code is detected in session
+  useEffect(() => {
+    if (modalQrCode) {
+      setQrLoading(false);
+    }
+  }, [modalQrCode]);
 
   const isConnected = primarySession?.status === 'connected';
   const isDedicatedConnected = myDedicatedSession?.status === 'connected';
