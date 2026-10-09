@@ -996,16 +996,32 @@ export default function ConversationsPage({
     const hasLiveQr = Boolean(modalQrCode);
     if (!isModalConnected && !hasLiveQr && !startingSessionRef.current) {
       startingSessionRef.current = true;
-      handleStartSession(null, false).finally(() => {
+      const isStuck = (localSessions || []).some(s => s.status === 'connecting' && !s.qr_code);
+      handleStartSession(null, isStuck).finally(() => {
         setTimeout(() => { startingSessionRef.current = false; }, 3000);
       });
     }
 
     const interval = setInterval(() => {
       fetchCurrentSessions();
-    }, 2500);
+    }, 2000);
 
     return () => clearInterval(interval);
+  }, [showQrModal, isModalConnected, modalQrCode, localSessions]);
+
+  // Watchdog: If modal is open for 4 seconds and no QR code appears, trigger hard reset for guaranteed QR
+  useEffect(() => {
+    if (!showQrModal || isModalConnected || modalQrCode) return;
+
+    const timer = setTimeout(() => {
+      if (showQrModal && !modalQrCode && !isModalConnected && !startingSessionRef.current) {
+        console.log('[QR Watchdog] No QR code detected after 4s: triggering clean reset...');
+        setQrActionMsg('Clearing stale session & generating fresh QR Code...');
+        handleStartSession(null, true);
+      }
+    }, 4000);
+
+    return () => clearTimeout(timer);
   }, [showQrModal, isModalConnected, modalQrCode]);
 
   // Start or trigger QR code generation for WhatsApp session
@@ -1051,6 +1067,19 @@ export default function ConversationsPage({
       }
 
       if (targetId) {
+        if (force) {
+          // Explicitly trigger server reset to wipe any stale credentials folder on VPS
+          try {
+            await fetch(`${API_URL}/sessions/reset/${encodeURIComponent(targetId)}`, {
+              method: 'POST',
+              headers: reqHeaders,
+              body: JSON.stringify({ tenantId: companyId })
+            });
+          } catch (resetErr) {
+            console.warn('[Session Hard Reset Notice]', resetErr);
+          }
+        }
+
         const url = `${API_URL}/sessions/start/${targetId}${force ? '?force=true&wipeAuth=true' : ''}`;
         let startRes = await fetch(url, {
           method: 'POST',
