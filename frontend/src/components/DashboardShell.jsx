@@ -5987,22 +5987,47 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       fetchContacts();
       fetchChatbotRules();
       fetchTenantSettings();
-      // Connect WebSockets
-      const currentToken = localStorage.getItem('omnilflow_token') || '';
+      // Connect WebSockets with resilient transports & automatic reconnection
+      const currentToken = localStorage.getItem('token') || localStorage.getItem('omnilflow_token') || localStorage.getItem('omni_1_token') || '';
       const socket = io(SOCKET_URL, {
-        query: { token: currentToken }
+        query: { token: currentToken },
+        auth: { token: currentToken },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        timeout: 10000
       });
       socketRef.current = socket;
-        socket.on('connect', () => {
+
+      socket.on('connect', () => {
         console.log('Connected to WebSocket server');
         setServerOnline(true);
         fetchSessions();
         fetchContacts();
       });
-      socket.on('disconnect', () => {
-        console.log('Disconnected from WebSocket server');
-        setServerOnline(false);
+
+      socket.on('disconnect', (reason) => {
+        console.log('WebSocket disconnected:', reason);
+        // Only set offline if http health check confirms backend is unreachable
+        if (reason === 'io server disconnect') {
+          socket.connect();
+        }
       });
+
+      // Background HTTP health check pinger to guarantee serverOnline accuracy
+      const healthCheckInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_URL}/health`);
+          if (res.ok) {
+            setServerOnline(true);
+          }
+        } catch (e) {
+          if (!socketRef.current?.connected) {
+            setServerOnline(false);
+          }
+        }
+      }, 15000);
       socket.on('session_update', (data) => {
         console.log('Session updated:', data);
         setSessions(prev => {
@@ -6162,6 +6187,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         });
       });
       return () => {
+        clearInterval(healthCheckInterval);
         if (socketRef.current) {
           socketRef.current.disconnect();
         }

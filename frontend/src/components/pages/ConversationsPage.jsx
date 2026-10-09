@@ -766,28 +766,54 @@ export default function ConversationsPage({
     }
   }, []);
  
-  // Fast local caching helpers for 0ms instant conversation loading & switching
-  const getCachedMessages = useCallback((targetContactId) => {
-    if (!targetContactId) return null;
-    let cached = messagesCacheRef.current.get(targetContactId);
-    if (!cached || cached.length === 0) {
+  // Fast local caching helpers for 0ms instant conversation loading & switching (indexed by ID + 10-digit phone)
+  const getCachedMessages = useCallback((targetContactId, extraPhone = '') => {
+    if (!targetContactId && !extraPhone) return null;
+    const cleanP = String(extraPhone || targetContactId || '').replace(/\D/g, '');
+    const norm10 = cleanP.length >= 7 ? cleanP.slice(-10) : '';
+
+    const keysToTry = [
+      targetContactId,
+      norm10,
+      norm10 ? `91${norm10}@s.whatsapp.net` : null,
+      norm10 ? `+91 ${norm10}` : null
+    ].filter(Boolean);
+
+    for (const key of keysToTry) {
+      const mem = messagesCacheRef.current.get(key);
+      if (mem && mem.length > 0) return mem;
+    }
+
+    for (const key of keysToTry) {
       try {
-        const stored = TenantStorage.getItem('cached_chat_msgs_' + targetContactId, companyId);
+        const stored = TenantStorage.getItem('cached_chat_msgs_' + key, companyId);
         if (stored && Array.isArray(stored) && stored.length > 0) {
-          cached = stored;
-          messagesCacheRef.current.set(targetContactId, stored);
+          messagesCacheRef.current.set(key, stored);
+          return stored;
         }
       } catch (e) {}
     }
-    return (cached && cached.length > 0) ? cached : null;
+    return null;
   }, [companyId]);
 
-  const saveCachedMessages = useCallback((targetContactId, msgs) => {
-    if (!targetContactId || !Array.isArray(msgs)) return;
-    messagesCacheRef.current.set(targetContactId, msgs);
-    try {
-      TenantStorage.setItem('cached_chat_msgs_' + targetContactId, msgs.slice(-60), companyId);
-    } catch (e) {}
+  const saveCachedMessages = useCallback((targetContactId, msgs, extraPhone = '') => {
+    if (!Array.isArray(msgs)) return;
+    const cleanP = String(extraPhone || targetContactId || '').replace(/\D/g, '');
+    const norm10 = cleanP.length >= 7 ? cleanP.slice(-10) : '';
+
+    const keysToSave = [
+      targetContactId,
+      norm10,
+      norm10 ? `91${norm10}@s.whatsapp.net` : null
+    ].filter(Boolean);
+
+    const slice = msgs.slice(-60);
+    keysToSave.forEach(key => {
+      messagesCacheRef.current.set(key, msgs);
+      try {
+        TenantStorage.setItem('cached_chat_msgs_' + key, slice, companyId);
+      } catch (e) {}
+    });
   }, [companyId]);
 
   // Request native browser desktop notification permissions on mount
@@ -1576,13 +1602,12 @@ export default function ConversationsPage({
     const norm10 = cleanPhone.length >= 7 ? cleanPhone.slice(-10) : '';
 
     if (!forceFresh) {
-      const cached = getCachedMessages(contactId);
+      const cached = getCachedMessages(contactId, norm10);
       if (cached && cached.length > 0) {
         setActiveMessages(cached);
         setIsLoadingMessages(false);
         setTimeout(() => scrollToBottom(true), 15);
       } else {
-        setActiveMessages([]);
         setIsLoadingMessages(true);
       }
     } else {
@@ -1590,6 +1615,7 @@ export default function ConversationsPage({
     }
 
     const queryPhone = norm10 ? `91${norm10}` : cleanPhone;
+    const queryLimit = isMobile ? 45 : 80;
     const abortCtrl = new AbortController();
 
     // Safety timeout: Ensure loading spinner is NEVER stuck past 3 seconds
@@ -1597,7 +1623,7 @@ export default function ConversationsPage({
       setIsLoadingMessages(false);
     }, 3000);
 
-    fetch(`${API_URL}/contacts/${encodeURIComponent(contactId)}/messages?limit=100&phone=${encodeURIComponent(queryPhone)}&tenantId=${encodeURIComponent(companyId)}`, {
+    fetch(`${API_URL}/contacts/${encodeURIComponent(contactId)}/messages?limit=${queryLimit}&phone=${encodeURIComponent(queryPhone)}&tenantId=${encodeURIComponent(companyId)}`, {
       signal: abortCtrl.signal,
       headers: {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
@@ -1647,7 +1673,7 @@ export default function ConversationsPage({
               if (m.id && p.id && m.id === p.id) return true;
               const mText = (m.text_content || m.textContent || '').trim();
               const mTs = normalizeTs(m.timestamp);
-              return mText && pText && mText === pText && Math.abs(mTs - pTs) <= 20;
+              return mText && pText && mText === pText && Math.abs(mTs - pTs) <= 25;
             });
             if (!existsInServer) {
               map.set(key, p);
@@ -1658,7 +1684,7 @@ export default function ConversationsPage({
             const tB = (b.timestamp && b.timestamp < 10000000000) ? b.timestamp * 1000 : (b.timestamp || 0);
             return tA - tB;
           });
-          saveCachedMessages(contactId, merged);
+          saveCachedMessages(contactId, merged, norm10);
           return merged;
         });
         setIsLoadingMessages(false);
@@ -1680,7 +1706,7 @@ export default function ConversationsPage({
       clearTimeout(safetyTimer);
       abortCtrl.abort();
     };
-  }, [API_URL, token, companyId]);
+  }, [API_URL, token, companyId, isMobile, getCachedMessages, saveCachedMessages]);
 
   useEffect(() => {
     const cleanup = fetchMessagesForContact(activeContact, false);
@@ -1688,6 +1714,113 @@ export default function ConversationsPage({
       if (typeof cleanup === 'function') cleanup();
     };
   }, [activeContact?.id, activeContact?.phone, activeContact?.rawPhone, fetchMessagesForContact]);
+
+  // 4b. Smart Delta Reconciliation & Visibility Poller (Zero-Loss Message Engine)
+  useEffect(() => {
+    if (!activeContact?.id) return;
+
+    let isPolling = false;
+    const pollActiveMessages = async () => {
+      if (isPolling) return;
+      if (typeof document !== 'undefined' && document.hidden) return;
+      isPolling = true;
+
+      try {
+        const contactId = activeContact.id;
+        const cleanPhone = String(activeContact.phone || activeContact.rawPhone || activeContact.phoneNumber || activeContact.id || '').replace(/\D/g, '');
+        const norm10 = cleanPhone.length >= 7 ? cleanPhone.slice(-10) : '';
+        const queryPhone = norm10 ? `91${norm10}` : cleanPhone;
+        const queryLimit = isMobile ? 35 : 60;
+
+        const res = await fetch(`${API_URL}/contacts/${encodeURIComponent(contactId)}/messages?limit=${queryLimit}&phone=${encodeURIComponent(queryPhone)}&tenantId=${encodeURIComponent(companyId)}`, {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'x-tenant-id': String(companyId),
+            'Accept': 'application/json'
+          }
+        });
+
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          const msgs = Array.isArray(data?.messages) ? data.messages : (Array.isArray(data) ? data : []);
+          if (msgs.length > 0 && activeContactRef.current?.id === contactId) {
+            setActiveMessages(prev => {
+              const map = new Map();
+              msgs.forEach(m => {
+                if (!m) return;
+                const key = m.id || `${m.text_content || m.textContent}_${m.timestamp}`;
+                map.set(key, m);
+              });
+
+              // Keep optimistic outbounds that are not yet reconciled
+              let hasUnreconciled = false;
+              (prev || []).forEach(p => {
+                if (!p) return;
+                const isOptimistic = Boolean(p.id && (String(p.id).startsWith('wa_out_') || String(p.id).startsWith('temp_')));
+                if (isOptimistic) {
+                  const pText = (p.text_content || p.textContent || '').trim();
+                  const pTs = normalizeTs(p.timestamp);
+                  const isConfirmed = msgs.some(m => {
+                    const mText = (m.text_content || m.textContent || '').trim();
+                    const mTs = normalizeTs(m.timestamp);
+                    return mText && pText && mText === pText && Math.abs(mTs - pTs) <= 25;
+                  });
+                  if (!isConfirmed) {
+                    map.set(p.id, p);
+                    hasUnreconciled = true;
+                  }
+                } else if (!map.has(p.id)) {
+                  map.set(p.id, p);
+                }
+              });
+
+              const sorted = Array.from(map.values()).sort((a, b) => {
+                const tA = (a.timestamp && a.timestamp < 10000000000) ? a.timestamp * 1000 : (a.timestamp || 0);
+                const tB = (b.timestamp && b.timestamp < 10000000000) ? b.timestamp * 1000 : (b.timestamp || 0);
+                return tA - tB;
+              });
+
+              // Check if any new message was added compared to previous state
+              const lastOld = prev[prev.length - 1];
+              const lastNew = sorted[sorted.length - 1];
+              const isDifferent = sorted.length !== prev.length || lastOld?.id !== lastNew?.id || lastOld?.status !== lastNew?.status;
+
+              if (isDifferent) {
+                // Play notification chime if new incoming message arrived
+                if (lastNew && (lastNew.from_me === 0 || lastNew.fromMe === false) && lastOld?.id !== lastNew?.id) {
+                  try { playWhatsAppChime(); } catch (e) {}
+                }
+                saveCachedMessages(contactId, sorted, norm10);
+                return sorted;
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (err) {
+        // Silent catch for background poll
+      } finally {
+        isPolling = false;
+      }
+    };
+
+    // Poll every 3.5 seconds
+    const pollTimer = setInterval(pollActiveMessages, 3500);
+
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        pollActiveMessages();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
+    return () => {
+      clearInterval(pollTimer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
+  }, [activeContact?.id, activeContact?.phone, API_URL, token, companyId, isMobile, saveCachedMessages]);
 
   // Real-time Electron WhatsApp Webview Incoming Message & Batch Sync Listener
   useEffect(() => {
@@ -1821,11 +1954,24 @@ export default function ConversationsPage({
           tenantId: companyId,
           tenant_id: companyId
         },
-        transports: ['websocket', 'polling']
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        timeout: 10000
       });
 
       socket.on('connect', () => {
         socket.emit('join_tenant', companyId);
+        if (activeContactRef.current?.id) {
+          fetchMessagesForContact(activeContactRef.current, true);
+        }
+      });
+
+      socket.on('disconnect', (reason) => {
+        if (reason === 'io server disconnect') {
+          socket.connect();
+        }
       });
 
       socket.on('history_synced', (data) => {
