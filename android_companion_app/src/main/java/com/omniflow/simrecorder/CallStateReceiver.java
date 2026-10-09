@@ -315,6 +315,7 @@ public class CallStateReceiver extends BroadcastReceiver {
                 stopIntent.putExtra("sim_slot", activeSim);
                 stopIntent.putExtra("was_missed", wasMissed);
                 stopIntent.putExtra("call_id", activeCallId);
+                stopIntent.putExtra("start_time", prefs.getLong("call_start_time", System.currentTimeMillis()));
 
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

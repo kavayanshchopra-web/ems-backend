@@ -3624,6 +3624,7 @@ string abc_shareactionprovider_share_with
 string abc_shareactionprovider_share_with_application
 string abc_toolbar_collapse_description
 string androidx_startup
+string app_name
 string app_version
 string appbar_scrolling_view_behavior
 string bottom_sheet_behavior

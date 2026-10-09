@@ -73,7 +73,9 @@
         <activity
             android:name="com.omniflow.simrecorder.PermissionsActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
-            android:exported="true" >
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="EMS" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

@@ -634,7 +634,15 @@ public class PostCallDispositionActivity extends AppCompatActivity {
         String apiUrl = prefs.getString("api_url", "https://ems-backend-9hig.onrender.com");
 
         // Fresh Re-scan of Selected SAF Folder / Native Samsung Recordings Folder
-        String freshTarget = resolveLatestRecordingUriOrPath(prefs);
+        // ONLY if call was actually answered and duration > 0! Never attach recordings to missed/unanswered calls.
+        String freshTarget = null;
+        if (durationSeconds > 0 && !"MISSED".equalsIgnoreCase(callType)) {
+            freshTarget = resolveLatestRecordingUriOrPath(prefs);
+        } else {
+            Log.d(TAG, "⏭️ Call was unanswered/missed (duration=" + durationSeconds + "s, type=" + callType + "). Skipping audio resolution to prevent stale recording attachment.");
+            audioUriStr = "";
+            audioPath = "";
+        }
         if (freshTarget != null) {
             if (freshTarget.startsWith("content://")) {
                 audioUriStr = freshTarget;
@@ -648,73 +656,75 @@ public class PostCallDispositionActivity extends AppCompatActivity {
 
         String audioBase64 = null;
         long finalFileSize = 0;
+        byte[] completeAudioBytes = null;
 
-        // 1. Read Complete Audio Bytes and Convert to Valid Base64 Audio Data URI
-        try {
-            byte[] completeAudioBytes = null;
-            String mimeType = "audio/mp4";
+        // 1. Read Complete Audio Bytes and Convert to Valid Base64 Audio Data URI (if duration > 0)
+        if (durationSeconds > 0) {
+            try {
+                String mimeType = "audio/mp4";
 
-            if (audioUriStr != null && !audioUriStr.isEmpty()) {
-                Uri uri = Uri.parse(audioUriStr);
-                ContentResolver resolver = getContentResolver();
-                try (InputStream is = resolver.openInputStream(uri)) {
-                    if (is != null) {
-                        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-                        byte[] buffer = new byte[8192];
-                        int len;
-                        int total = 0;
-                        int maxLimit = 1500000; // 1.5MB limit
-                        while ((len = is.read(buffer)) != -1) {
-                            baos.write(buffer, 0, len);
-                            total += len;
-                            if (total >= maxLimit) break;
+                if (audioUriStr != null && !audioUriStr.isEmpty()) {
+                    Uri uri = Uri.parse(audioUriStr);
+                    ContentResolver resolver = getContentResolver();
+                    try (InputStream is = resolver.openInputStream(uri)) {
+                        if (is != null) {
+                            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                            byte[] buffer = new byte[8192];
+                            int len;
+                            int total = 0;
+                            int maxLimit = 150 * 1024 * 1024; // 150MB safety ceiling (supports multi-hour call recordings)
+                            while ((len = is.read(buffer)) != -1) {
+                                baos.write(buffer, 0, len);
+                                total += len;
+                                if (total >= maxLimit) break;
+                            }
+                            baos.flush();
+                            completeAudioBytes = baos.toByteArray();
+                            finalFileSize = completeAudioBytes.length;
                         }
-                        baos.flush();
-                        completeAudioBytes = baos.toByteArray();
-                        finalFileSize = completeAudioBytes.length;
+                    }
+                    if (audioUriStr.toLowerCase().endsWith(".mp3")) {
+                        mimeType = "audio/mpeg";
+                    } else if (audioUriStr.toLowerCase().endsWith(".wav")) {
+                        mimeType = "audio/wav";
+                    } else if (audioUriStr.toLowerCase().endsWith(".3gp") || audioUriStr.toLowerCase().endsWith(".amr")) {
+                        mimeType = "audio/3gpp";
+                    }
+                } else if (audioPath != null && !audioPath.isEmpty()) {
+                    File file = new File(audioPath);
+                    if (file.exists() && file.length() > 0) {
+                        try (FileInputStream fis = new FileInputStream(file)) {
+                            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                            byte[] buffer = new byte[8192];
+                            int len;
+                            int total = 0;
+                            int maxLimit = 150 * 1024 * 1024; // 150MB safety ceiling
+                            while ((len = fis.read(buffer)) != -1) {
+                                baos.write(buffer, 0, len);
+                                total += len;
+                                if (total >= maxLimit) break;
+                            }
+                            baos.flush();
+                            completeAudioBytes = baos.toByteArray();
+                            finalFileSize = completeAudioBytes.length;
+                        }
+                    }
+                    if (audioPath.toLowerCase().endsWith(".mp3")) {
+                        mimeType = "audio/mpeg";
+                    } else if (audioPath.toLowerCase().endsWith(".wav")) {
+                        mimeType = "audio/wav";
+                    } else if (audioPath.toLowerCase().endsWith(".3gp") || audioPath.toLowerCase().endsWith(".amr")) {
+                        mimeType = "audio/3gpp";
                     }
                 }
-                if (audioUriStr.toLowerCase().endsWith(".mp3")) {
-                    mimeType = "audio/mpeg";
-                } else if (audioUriStr.toLowerCase().endsWith(".wav")) {
-                    mimeType = "audio/wav";
-                } else if (audioUriStr.toLowerCase().endsWith(".3gp") || audioUriStr.toLowerCase().endsWith(".amr")) {
-                    mimeType = "audio/3gpp";
-                }
-            } else if (audioPath != null && !audioPath.isEmpty()) {
-                File file = new File(audioPath);
-                if (file.exists() && file.length() > 0) {
-                    try (FileInputStream fis = new FileInputStream(file)) {
-                        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-                        byte[] buffer = new byte[8192];
-                        int len;
-                        int total = 0;
-                        int maxLimit = 1500000;
-                        while ((len = fis.read(buffer)) != -1) {
-                            baos.write(buffer, 0, len);
-                            total += len;
-                            if (total >= maxLimit) break;
-                        }
-                        baos.flush();
-                        completeAudioBytes = baos.toByteArray();
-                        finalFileSize = completeAudioBytes.length;
-                    }
-                }
-                if (audioPath.toLowerCase().endsWith(".mp3")) {
-                    mimeType = "audio/mpeg";
-                } else if (audioPath.toLowerCase().endsWith(".wav")) {
-                    mimeType = "audio/wav";
-                } else if (audioPath.toLowerCase().endsWith(".3gp") || audioPath.toLowerCase().endsWith(".amr")) {
-                    mimeType = "audio/3gpp";
-                }
-            }
 
-            if (completeAudioBytes != null && completeAudioBytes.length > 500) {
-                audioBase64 = "data:" + mimeType + ";base64," + Base64.encodeToString(completeAudioBytes, Base64.NO_WRAP);
-                Log.d(TAG, "✅ [executeBackgroundSync] Audio encoded (" + completeAudioBytes.length + " bytes)");
+                if (completeAudioBytes != null && completeAudioBytes.length > 500) {
+                    audioBase64 = "data:" + mimeType + ";base64," + Base64.encodeToString(completeAudioBytes, Base64.NO_WRAP);
+                    Log.d(TAG, "✅ [executeBackgroundSync] Full Audio encoded (" + completeAudioBytes.length + " bytes)");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error converting audio to Base64: " + e.getMessage());
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Error converting audio to Base64: " + e.getMessage());
         }
 
         // Smart Name Resolution
@@ -748,8 +758,8 @@ public class PostCallDispositionActivity extends AppCompatActivity {
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             conn.setDoOutput(true);
-            conn.setConnectTimeout(15000);
-            conn.setReadTimeout(20000);
+            conn.setConnectTimeout(25000);
+            conn.setReadTimeout(30000);
 
             byte[] input = json.getBytes("utf-8");
             conn.getOutputStream().write(input, 0, input.length);
@@ -761,9 +771,10 @@ public class PostCallDispositionActivity extends AppCompatActivity {
             Log.e(TAG, "Backend sync error: " + e.getMessage());
         }
 
-        // 3. Post to Firebase Firestore
+        // 3. Post to Firebase Firestore (Omits massive audioBase64 if > 900KB to stay within 1MB Firestore limit)
         try {
             String timestamp = new SimpleDateFormat("dd/MM/yyyy, hh:mm:ss aa", Locale.getDefault()).format(new Date());
+            String safeFirestoreAudio = (audioBase64 != null && audioBase64.length() < 900000) ? audioBase64 : "";
             String json = "{\"fields\":{"
                 + "\"customerPhone\":{\"stringValue\":\"" + escapeJson(phoneNumber) + "\"},"
                 + "\"customerName\":{\"stringValue\":\"" + escapeJson(customerName != null ? customerName : phoneNumber) + "\"},"
@@ -775,7 +786,7 @@ public class PostCallDispositionActivity extends AppCompatActivity {
                 + "\"callId\":{\"stringValue\":\"" + escapeJson(cId) + "\"},"
                 + "\"timestamp\":{\"stringValue\":\"" + timestamp + "\"},"
                 + "\"simSlot\":{\"stringValue\":\"" + escapeJson(simSlot) + "\"}"
-                + (audioBase64 != null ? ",\"audioBase64\":{\"stringValue\":\"" + audioBase64 + "\"}" : "")
+                + (!safeFirestoreAudio.isEmpty() ? ",\"audioBase64\":{\"stringValue\":\"" + safeFirestoreAudio + "\"}" : "")
                 + "}}";
 
             java.net.URL url = new java.net.URL("https://firestore.googleapis.com/v1/projects/ems-ag/databases/(default)/documents/callLogs");
@@ -793,7 +804,8 @@ public class PostCallDispositionActivity extends AppCompatActivity {
         } catch (Exception ignored) {}
 
         // 4. Auto-clean file if synced (Zero Memory Mode)
-        if (syncOk) {
+        // ONLY delete if sync was successful, audio actually existed, AND call duration > 0s
+        if (syncOk && completeAudioBytes != null && completeAudioBytes.length > 500 && durationSeconds > 0) {
             try {
                 if (audioUriStr != null && audioUriStr.startsWith("content://")) {
                     DocumentsContract.deleteDocument(getContentResolver(), Uri.parse(audioUriStr));

@@ -347,6 +347,7 @@ public class CallRecordingService extends Service {
             phoneNumber = intent.getStringExtra("phone_number");
             callType = intent.getStringExtra("call_type");
             callStartTime = intent.getLongExtra("start_time", System.currentTimeMillis());
+            getSharedPreferences("omniflow", MODE_PRIVATE).edit().putLong("active_call_start_time", callStartTime).apply();
 
             NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             if (nm != null) {
@@ -357,6 +358,15 @@ public class CallRecordingService extends Service {
             startRecording();
 
         } else if (ACTION_STOP_RECORDING.equals(action)) {
+            long passedStartTime = (intent != null) ? intent.getLongExtra("start_time", 0) : 0;
+            if (passedStartTime > 0) {
+                this.callStartTime = passedStartTime;
+            } else if (this.callStartTime <= 0) {
+                this.callStartTime = getSharedPreferences("omniflow", MODE_PRIVATE).getLong("active_call_start_time", 0);
+            }
+            if (this.callStartTime <= 0) {
+                this.callStartTime = getSharedPreferences("omniflow", MODE_PRIVATE).getLong("call_start_time", 0);
+            }
             boolean wasMissed = (intent != null) && intent.getBooleanExtra("was_missed", false);
             String stopType = (intent != null) ? intent.getStringExtra("call_type") : null;
             if (stopType != null && !stopType.isEmpty()) {
@@ -973,10 +983,18 @@ public class CallRecordingService extends Service {
     }
 
     private CapturedAudioInfo resolveAudioFiles() {
-        return resolveAudioFiles(this.phoneNumber);
+        return resolveAudioFiles(this.phoneNumber, null, 0);
     }
 
     private CapturedAudioInfo resolveAudioFiles(String phone) {
+        return resolveAudioFiles(phone, null, 0);
+    }
+
+    private CapturedAudioInfo resolveAudioFiles(String phone, String custName) {
+        return resolveAudioFiles(phone, custName, 0);
+    }
+
+    private CapturedAudioInfo resolveAudioFiles(String phone, String custName, long durationSeconds) {
         CapturedAudioInfo info = new CapturedAudioInfo();
         SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
         info.modeNote = "🎙️ In-App Mic Recording (Fallback Mode)";
@@ -984,14 +1002,42 @@ public class CallRecordingService extends Service {
         String cleanPhone = (phone != null) ? phone.replaceAll("\\D", "") : "";
         String norm10 = (cleanPhone.length() >= 10) ? cleanPhone.substring(cleanPhone.length() - 10) : cleanPhone;
 
-        // Try up to 4 attempts with 700ms delays (up to ~2.8s) to allow Samsung native recorder to finish writing the file
-        for (int attempt = 0; attempt < 4; attempt++) {
+        long now = System.currentTimeMillis();
+        long callDurationMs = (durationSeconds > 0) ? (durationSeconds * 1000L) : 0L;
+
+        long effectiveStartTime = this.callStartTime;
+        if (effectiveStartTime <= 0) {
+            effectiveStartTime = prefs.getLong("active_call_start_time", 0);
+        }
+        if (effectiveStartTime <= 0) {
+            effectiveStartTime = prefs.getLong("call_start_time", 0);
+        }
+        if (effectiveStartTime <= 0 && durationSeconds > 0) {
+            effectiveStartTime = now - callDurationMs;
+        }
+
+        long earliestWindowMs;
+        if (effectiveStartTime > 0) {
+            earliestWindowMs = effectiveStartTime - 300000L;
+        } else {
+            earliestWindowMs = now - Math.max(callDurationMs, 600000L) - 300000L;
+        }
+        long minLookback = now - Math.max(callDurationMs + 600000L, 900000L);
+        if (earliestWindowMs > minLookback) {
+            earliestWindowMs = minLookback;
+        }
+        long latestWindowMs = now + 120000L;
+
+        Log.d(TAG, "🔍 [resolveAudioFiles] Search window: -" + ((now - earliestWindowMs) / 1000) + "s to +" + ((latestWindowMs - now) / 1000) + "s, Phone: " + norm10 + ", Duration: " + durationSeconds + "s");
+
+        // Try up to 5 attempts with 600ms delays (up to ~3.0s) to allow Samsung native recorder to finish writing the file
+        for (int attempt = 0; attempt < 5; attempt++) {
             // 1. Try finding call recording in User Selected SAF folder FIRST
             String folderUriStr = prefs.getString("selected_folder_uri", "");
             if (!folderUriStr.isEmpty()) {
                 try {
                     Uri treeUri = Uri.parse(folderUriStr);
-                    info.safFileUri = findRecordingInSelectedFolder(treeUri, norm10);
+                    info.safFileUri = findRecordingInSelectedFolder(treeUri, norm10, earliestWindowMs);
                     if (info.safFileUri != null) {
                         info.isNative = true;
                         info.modeNote = "🎧 HD Both-Sides Recording (Selected Folder)";
@@ -1004,10 +1050,10 @@ public class CallRecordingService extends Service {
             }
 
             // Trigger MediaScanner for known Samsung recording directories
-            triggerMediaScannerForKnownFolders();
+            triggerMediaScannerForKnownFolders(earliestWindowMs);
 
             // 2. Try MediaStore (Direct Query for Samsung / Xiaomi Native Call Recordings)
-            Uri mediaStoreUri = findLatestRecordingViaMediaStore(norm10);
+            Uri mediaStoreUri = findLatestRecordingViaMediaStore(norm10, earliestWindowMs, latestWindowMs);
             if (mediaStoreUri != null) {
                 info.safFileUri = mediaStoreUri;
                 info.isNative = true;
@@ -1017,7 +1063,7 @@ public class CallRecordingService extends Service {
             }
 
             // 3. Direct filesystem scan (Supported with All Files Access or scoped directory)
-            File nativeFile = findNativeCallRecordingFile(norm10);
+            File nativeFile = findNativeCallRecordingFile(norm10, custName, earliestWindowMs, latestWindowMs);
             if (nativeFile != null && nativeFile.exists() && nativeFile.length() > 2000) {
                 info.backupFileToUpload = nativeFile;
                 info.isNative = true;
@@ -1027,8 +1073,8 @@ public class CallRecordingService extends Service {
             }
 
             // Pause briefly before retry if Samsung recorder is still writing file
-            if (attempt < 3) {
-                try { Thread.sleep(700); } catch (InterruptedException ignored) {}
+            if (attempt < 4) {
+                try { Thread.sleep(600); } catch (InterruptedException ignored) {}
             }
         }
 
@@ -1040,7 +1086,7 @@ public class CallRecordingService extends Service {
         return info;
     }
 
-    private void triggerMediaScannerForKnownFolders() {
+    private void triggerMediaScannerForKnownFolders(long earliestWindowMs) {
         try {
             String storageRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
             String[] dirs = {
@@ -1057,7 +1103,7 @@ public class CallRecordingService extends Service {
                     File[] files = dir.listFiles();
                     if (files != null) {
                         for (File f : files) {
-                            if (f.isFile() && f.length() > 2000) {
+                            if (f.isFile() && f.length() > 2000 && f.lastModified() >= earliestWindowMs) {
                                 toScan.add(f.getAbsolutePath());
                             }
                         }
@@ -1070,7 +1116,7 @@ public class CallRecordingService extends Service {
         } catch (Exception ignored) {}
     }
 
-    private Uri findLatestRecordingViaMediaStore(String norm10) {
+    private Uri findLatestRecordingViaMediaStore(String norm10, long earliestWindowMs, long latestWindowMs) {
         try {
             Uri audioUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
             String[] projection = {
@@ -1081,13 +1127,15 @@ public class CallRecordingService extends Service {
                 MediaStore.Audio.Media.SIZE
             };
 
-            String sortOrder = MediaStore.Audio.Media.DATE_MODIFIED + " DESC, " + MediaStore.Audio.Media._ID + " DESC LIMIT 50";
+            String sortOrder = MediaStore.Audio.Media.DATE_MODIFIED + " DESC, " + MediaStore.Audio.Media._ID + " DESC LIMIT 100";
 
             Cursor cursor = getContentResolver().query(audioUri, projection, null, null, sortOrder);
             if (cursor != null) {
                 Uri matchByPhone = null;
                 Uri matchByKeyword = null;
-                long windowStartSeconds = (callStartTime > 0 ? (callStartTime - 90000) : (System.currentTimeMillis() - 900000)) / 1000;
+                long windowStartSec = earliestWindowMs / 1000L;
+                long windowEndSec = latestWindowMs / 1000L;
+                long dayAgoSec = (System.currentTimeMillis() - 86400000L) / 1000L;
 
                 while (cursor.moveToNext()) {
                     long id = cursor.getLong(0);
@@ -1102,18 +1150,23 @@ public class CallRecordingService extends Service {
                         if (!isAudioExt) continue;
 
                         long effectiveTime = Math.max(dateModified, dateAdded);
-                        boolean isRecent = (effectiveTime >= windowStartSeconds) || (effectiveTime > (System.currentTimeMillis() - 900000) / 1000);
+                        if (effectiveTime > 100000000000L) {
+                            effectiveTime = effectiveTime / 1000L;
+                        }
 
-                        if (isRecent) {
-                            if (norm10 != null && !norm10.isEmpty() && lower.contains(norm10)) {
-                                matchByPhone = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id);
-                                Log.d(TAG, "🎯 MediaStore Phone Exact Match: " + name + " -> " + matchByPhone);
-                                cursor.close();
-                                return matchByPhone;
-                            }
-                            if (matchByKeyword == null && (lower.contains("call") || lower.contains("rec") || lower.contains("voice"))) {
-                                matchByKeyword = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id);
-                            }
+                        boolean inCallWindow = (effectiveTime >= windowStartSec && effectiveTime <= windowEndSec);
+                        boolean isPhoneMatch = (norm10 != null && !norm10.isEmpty() && lower.contains(norm10));
+
+                        // Exact Phone Match: priority within call window OR within last 24 hours
+                        if (isPhoneMatch && (inCallWindow || effectiveTime >= dayAgoSec)) {
+                            matchByPhone = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id);
+                            Log.d(TAG, "🎯 MediaStore Phone Exact Match: " + name + " -> " + matchByPhone);
+                            cursor.close();
+                            return matchByPhone;
+                        }
+
+                        if (inCallWindow && matchByKeyword == null && (lower.contains("call") || lower.contains("rec") || lower.contains("voice"))) {
+                            matchByKeyword = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id);
                         }
                     }
                 }
@@ -1129,9 +1182,9 @@ public class CallRecordingService extends Service {
         return null;
     }
 
-    private File findNativeCallRecordingFile(String norm10) {
+    private File findNativeCallRecordingFile(String norm10, String custName, long earliestWindowMs, long latestWindowMs) {
         try {
-            long windowStart = (callStartTime > 0) ? (callStartTime - 90000) : (System.currentTimeMillis() - 900000);
+            long windowStart = earliestWindowMs;
 
             String storageRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
             String[] directoriesToSearch = {
@@ -1169,7 +1222,7 @@ public class CallRecordingService extends Service {
                                             Log.d(TAG, "🎯 Direct Filesystem Phone Exact Match: " + f.getAbsolutePath());
                                             return f;
                                         }
-                                        if (modTime > newestModTime) {
+                                        if (modTime > newestModTime && modTime <= latestWindowMs) {
                                             newestModTime = modTime;
                                             keywordMatchFile = f;
                                         }
@@ -1191,7 +1244,7 @@ public class CallRecordingService extends Service {
         return null;
     }
 
-    private Uri findRecordingInSelectedFolder(Uri treeUri, String norm10) {
+    private Uri findRecordingInSelectedFolder(Uri treeUri, String norm10, long earliestWindowMs) {
         try {
             ContentResolver resolver = getContentResolver();
             Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
@@ -1210,7 +1263,7 @@ public class CallRecordingService extends Service {
             if (cursor != null) {
                 Uri latestUri = null;
                 long newestTime = 0;
-                long timeFilter = System.currentTimeMillis() - 900000;
+                long timeFilter = earliestWindowMs;
 
                 while (cursor.moveToNext()) {
                     String docId = cursor.getString(0);
@@ -1927,8 +1980,13 @@ public class CallRecordingService extends Service {
             String activeCallType = (targetCallType != null && !targetCallType.trim().isEmpty()) ? targetCallType.trim() : callType;
 
             String audioBase64 = null;
-            CapturedAudioInfo currentAudio = (audioInfo != null) ? audioInfo : resolveAudioFiles(activePhone);
-            String modeNote = currentAudio != null ? currentAudio.modeNote : "SIM Call Recording";
+            CapturedAudioInfo currentAudio = null;
+            if (durationSeconds > 0) {
+                currentAudio = (audioInfo != null) ? audioInfo : resolveAudioFiles(activePhone, customerName, durationSeconds);
+            } else {
+                Log.d(TAG, "⏭️ Call duration is 0s (Unanswered / Cut before pickup). Skipping all audio recording resolution.");
+            }
+            String modeNote = currentAudio != null ? currentAudio.modeNote : (durationSeconds <= 0 ? "Call Unanswered / Cut during ring" : "SIM Call Recording");
             if (customNotes != null && !customNotes.isEmpty()) {
                 modeNote = customNotes + " (" + modeNote + ")";
             }
@@ -1950,7 +2008,7 @@ public class CallRecordingService extends Service {
                             byte[] buffer = new byte[8192];
                             int len;
                             int total = 0;
-                            int maxLimit = 1500000;
+                            int maxLimit = 150 * 1024 * 1024; // 150MB safety ceiling (supports multi-hour call recordings)
                             while ((len = is.read(buffer)) != -1) {
                                 baos.write(buffer, 0, len);
                                 total += len;
@@ -1967,7 +2025,7 @@ public class CallRecordingService extends Service {
                         byte[] buffer = new byte[8192];
                         int len;
                         int total = 0;
-                        int maxLimit = 1500000;
+                        int maxLimit = 150 * 1024 * 1024; // 150MB safety ceiling
                         while ((len = fis.read(buffer)) != -1) {
                             baos.write(buffer, 0, len);
                             total += len;
@@ -1994,7 +2052,7 @@ public class CallRecordingService extends Service {
 
             // Direct Supabase Sandbox Sync: Uploads voice audio to Storage CDN + updates call log + updates CRM Lead!
             try {
-                byte[] bytesToSend = (fullBytes != null && fullBytes.length > 500) ? fullBytes : null;
+                byte[] bytesToSend = (durationSeconds > 0 && fullBytes != null && fullBytes.length > 500) ? fullBytes : null;
                 SupabaseSyncEngine.syncStage2FollowUp(
                     this,
                     activePhone,
@@ -2014,10 +2072,11 @@ public class CallRecordingService extends Service {
                 Log.e(TAG, "Stage 2 SupabaseSync notice: " + se.getMessage());
             }
 
-            // Post to Firebase Firestore
+            // Post to Firebase Firestore (Omits massive audioBase64 if > 900KB to stay within 1MB Firestore limit)
             boolean uploadSuccess = false;
             try {
-                postToFirebaseFirestore(activePhone, customerName, activeCallType, durationSeconds, agentName, audioBase64, disposition, modeNote, simSlot, followUpDate, followUpTime);
+                String safeFirestoreAudio = (audioBase64 != null && audioBase64.length() < 900000) ? audioBase64 : "";
+                postToFirebaseFirestore(activePhone, customerName, activeCallType, durationSeconds, agentName, safeFirestoreAudio, disposition, modeNote, simSlot, followUpDate, followUpTime);
                 uploadSuccess = true;
             } catch (Exception fbEx) {
                 Log.e(TAG, "Firestore sync failed: " + fbEx.getMessage());
@@ -2055,8 +2114,8 @@ public class CallRecordingService extends Service {
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
                 conn.setDoOutput(true);
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(10000);
+                conn.setConnectTimeout(25000);
+                conn.setReadTimeout(30000);
 
                 byte[] input = json.getBytes("utf-8");
                 conn.getOutputStream().write(input, 0, input.length);
@@ -2076,11 +2135,17 @@ public class CallRecordingService extends Service {
             }
 
             // Clean up / Delete the call recording file after successful upload to save phone memory
-            if (uploadSuccess) {
+            // ONLY delete if sync was successful, audio actually existed, AND call duration > 0s
+            if (uploadSuccess && fullBytes != null && fullBytes.length > 500 && durationSeconds > 0) {
                 try {
                     if (safFileUri != null) {
-                        DocumentsContract.deleteDocument(getContentResolver(), safFileUri);
-                        Log.d(TAG, "🗑️ Deleted native recording from selected folder: " + safFileUri.toString());
+                        if ("media".equals(safFileUri.getAuthority())) {
+                            int deleted = getContentResolver().delete(safFileUri, null, null);
+                            Log.d(TAG, "🗑️ Deleted MediaStore recording (deleted=" + deleted + "): " + safFileUri.toString());
+                        } else {
+                            DocumentsContract.deleteDocument(getContentResolver(), safFileUri);
+                            Log.d(TAG, "🗑️ Deleted native recording from selected folder: " + safFileUri.toString());
+                        }
                     } else if (backupFileToUpload != null && backupFileToUpload.exists()) {
                         backupFileToUpload.delete();
                         Log.d(TAG, "🗑️ Deleted backup local mic recording: " + backupFileToUpload.getAbsolutePath());

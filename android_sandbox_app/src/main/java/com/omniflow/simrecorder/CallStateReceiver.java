@@ -147,6 +147,7 @@ public class CallStateReceiver extends BroadcastReceiver {
                 stopIntent.putExtra("phone_number", (number != null && !number.isEmpty()) ? number : "Customer");
                 stopIntent.putExtra("call_type", callDirection);
                 stopIntent.putExtra("was_missed", isMissed);
+                stopIntent.putExtra("start_time", prefs.getLong("call_start_time", System.currentTimeMillis()));
 
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

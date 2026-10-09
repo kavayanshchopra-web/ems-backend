@@ -235,11 +235,19 @@ export async function startSession(id, io, forceClean = false) {
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
     keepAliveIntervalMs: 25000,
-    syncFullHistory: true, // Allow history sync messages to be received from phone
-    shouldSyncHistoryMessage: () => true, // Ensure history sync messages are processed
+    syncFullHistory: false, // Prevents giant history dump that crashes 1GB RAM VPS and freezes QR scanner
+    shouldSyncHistoryMessage: () => false,
     markOnlineOnConnect: false,
     retryRequestDelayMs: 250,
-    generateHighQualityLinkPreview: false
+    generateHighQualityLinkPreview: false,
+    getMessage: async (key) => {
+      try {
+        const db = getDb();
+        const msg = await db.get('SELECT text_content FROM messages WHERE id = ?', [key.id]);
+        if (msg?.text_content) return { conversation: msg.text_content };
+      } catch (_) {}
+      return undefined;
+    }
   };
 
   if (version) {

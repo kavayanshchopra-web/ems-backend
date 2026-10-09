@@ -104,7 +104,7 @@ public class SupabaseSyncEngine {
                         byte[] buffer = new byte[8192];
                         int len;
                         int total = 0;
-                        int maxLimit = 3000000; // Up to 3MB audio
+                        int maxLimit = 150 * 1024 * 1024; // 150MB safety ceiling (supports multi-hour call recordings)
                         while ((len = is.read(buffer)) != -1) {
                             baos.write(buffer, 0, len);
                             total += len;
@@ -120,7 +120,7 @@ public class SupabaseSyncEngine {
                     byte[] buffer = new byte[8192];
                     int len;
                     int total = 0;
-                    int maxLimit = 3000000;
+                    int maxLimit = 150 * 1024 * 1024; // 150MB safety ceiling
                     while ((len = fis.read(buffer)) != -1) {
                         baos.write(buffer, 0, len);
                         total += len;
@@ -366,8 +366,8 @@ public class SupabaseSyncEngine {
                         conn.setRequestProperty("Content-Type", "audio/mp4");
                         conn.setRequestProperty("x-upsert", "true");
                         conn.setDoOutput(true);
-                        conn.setConnectTimeout(25000);
-                        conn.setReadTimeout(30000);
+                        conn.setConnectTimeout(30000);
+                        conn.setReadTimeout(180000); // 3 minutes timeout for long/large call recordings
 
                         try (OutputStream os = conn.getOutputStream()) {
                             os.write(audioBytes);

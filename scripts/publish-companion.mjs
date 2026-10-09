@@ -50,14 +50,15 @@ async function main() {
   const apkBytes = fs.readFileSync(apkPath);
   console.log(`📦 Loaded APK: ${apkBytes.length} bytes`);
 
-  // 1. Upload APK to Storage
+  // 1. Upload APK to Storage (both OmniFlow and EMS paths)
   const apkObjectPath = 'app/OmniFlow-Live-Companion.apk';
   const apkPublicUrl = await uploadFileToSupabase(apkObjectPath, apkBytes, 'application/vnd.android.package-archive');
+  await uploadFileToSupabase('app/EMS-Live-Companion.apk', apkBytes, 'application/vnd.android.package-archive');
 
   // 2. Read current version from build.gradle
   const gradlePath = path.join(rootDir, 'android_companion_app', 'build.gradle');
-  let versionCode = 2;
-  let versionName = '1.0.2';
+  let versionCode = 10;
+  let versionName = '1.1.0';
 
   if (fs.existsSync(gradlePath)) {
     const gradleContent = fs.readFileSync(gradlePath, 'utf8');
@@ -73,10 +74,10 @@ async function main() {
   const versionManifest = {
     versionCode: versionCode,
     versionName: versionName,
-    apkUrl: apkPublicUrl,
-    changeLog: 'Added In-App Auto-Updater, Multi-Layer SIM 2 detection, 0s call ghost-audio protection',
+    apkUrl: `${SUPABASE_STORAGE_URL}/object/public/${STORAGE_BUCKET}/app/EMS-Live-Companion.apk`,
+    changeLog: 'Deep Call Recording Fix: Dynamic duration lookback (supports any length <1min to 24hr), 150MB audio support, clean MediaStore sync & false REC OFF badge removed.',
     minVersionCode: 1,
-    forceUpdate: false,
+    forceUpdate: true,
     updatedAt: new Date().toISOString()
   };
 
