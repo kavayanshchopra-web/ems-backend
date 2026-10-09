@@ -900,21 +900,26 @@ export default function ConversationsPage({
   const companyPrimarySession = useMemo(() => {
     if (!Array.isArray(localSessions) || localSessions.length === 0) return null;
     const isPrimaryName = (s) => s.id === 'primary' || s.id === `session_${companyId}_primary` || s.id?.includes('primary');
+    
+    // Check for the official company primary session first
+    const primaryNamed = localSessions.find(s => isPrimaryName(s));
+
     // 1. Primary session that is actually connected
-    const connectedPrimary = localSessions.find(s => isPrimaryName(s) && s.status === 'connected');
-    if (connectedPrimary) return connectedPrimary;
+    if (primaryNamed && primaryNamed.status === 'connected') return primaryNamed;
+
     // 2. Any company session that is connected
     const anyConnected = localSessions.find(s => s.status === 'connected');
     if (anyConnected) return anyConnected;
-    // 3. Primary session with ready QR code
-    const qrPrimary = localSessions.find(s => isPrimaryName(s) && (s.status === 'qr_ready' || Boolean(s.qr_code)));
-    if (qrPrimary) return qrPrimary;
+
+    // 3. Primary named session exists (even if connecting or qr_ready), stick to it so it is never hijacked
+    if (primaryNamed) return primaryNamed;
+
     // 4. Any session with ready QR code
     const anyQr = localSessions.find(s => s.status === 'qr_ready' || Boolean(s.qr_code));
     if (anyQr) return anyQr;
+
     // 5. Fallbacks if nothing is currently connected or has QR
-    return localSessions.find(s => isPrimaryName(s))
-      || localSessions[0] || null;
+    return localSessions[0] || null;
   }, [localSessions, companyId]);
 
   // primarySession: The active session used for outbound messaging
@@ -962,18 +967,23 @@ export default function ConversationsPage({
     }
   }, [modalQrCode]);
 
+  const connectedPhone = primarySession?.phone_number || primarySession?.phoneNumber || '';
+  const myDedicatedPhone = myDedicatedSession?.phone_number || myDedicatedSession?.phoneNumber || '';
+  const companyPhone = companyPrimarySession?.phone_number || companyPrimarySession?.phoneNumber || '';
+  const modalConnectedPhone = activeQrSession?.phone_number || activeQrSession?.phoneNumber || '';
+
   const isConnected = primarySession?.status === 'connected';
   const isDedicatedConnected = myDedicatedSession?.status === 'connected';
   const isCompanyConnected = companyPrimarySession?.status === 'connected';
+
+  // Connecting states with an existing phone number mean background sync/handshake, not unlinked
+  const isCompanyConnectingWithPhone = Boolean(companyPhone && (companyPrimarySession?.status === 'connecting' || !isCompanyConnected));
+  const isDedicatedConnectingWithPhone = Boolean(myDedicatedPhone && (myDedicatedSession?.status === 'connecting' || !isDedicatedConnected));
 
   const isModalConnected = activeQrSession?.status === 'connected';
   const isModalQRReady = Boolean(modalQrCode);
   const isModalConnecting = activeQrSession?.status === 'connecting' || qrLoading;
 
-  const connectedPhone = primarySession?.phone_number || primarySession?.phoneNumber || '';
-  const myDedicatedPhone = myDedicatedSession?.phone_number || myDedicatedSession?.phoneNumber || '';
-  const companyPhone = companyPrimarySession?.phone_number || companyPrimarySession?.phoneNumber || '';
-  const modalConnectedPhone = activeQrSession?.phone_number || activeQrSession?.phoneNumber || '';
   const isQRReady = (primarySession?.status === 'qr_ready' || Boolean(primarySession?.qr_code)) && Boolean(primarySession?.qr_code);
   const isConnecting = primarySession?.status === 'connecting' || qrLoading;
 
@@ -3879,11 +3889,11 @@ export default function ConversationsPage({
                     gap: '4px',
                     padding: '3px 7px',
                     borderRadius: '6px',
-                    background: (isOwnerOrAdmin ? isCompanyConnected : isDedicatedConnected)
+                    background: (isOwnerOrAdmin ? (isCompanyConnected || isCompanyConnectingWithPhone) : (isDedicatedConnected || isDedicatedConnectingWithPhone))
                       ? '#ecfdf5' 
                       : (isCompanyConnected ? '#f0fdf4' : (isQRReady ? '#fefce8' : '#f0fdf4')),
-                    border: `1px solid ${(isOwnerOrAdmin ? isCompanyConnected : isDedicatedConnected) ? '#a7f3d0' : (isCompanyConnected ? '#86efac' : (isQRReady ? '#fef08a' : '#bbf7d0'))}`,
-                    color: (isOwnerOrAdmin ? isCompanyConnected : isDedicatedConnected) ? '#15803d' : (isCompanyConnected ? '#166534' : (isQRReady ? '#a16207' : '#166534')),
+                    border: `1px solid ${(isOwnerOrAdmin ? (isCompanyConnected || isCompanyConnectingWithPhone) : (isDedicatedConnected || isDedicatedConnectingWithPhone)) ? '#a7f3d0' : (isCompanyConnected ? '#86efac' : (isQRReady ? '#fef08a' : '#bbf7d0'))}`,
+                    color: (isOwnerOrAdmin ? (isCompanyConnected || isCompanyConnectingWithPhone) : (isDedicatedConnected || isDedicatedConnectingWithPhone)) ? '#15803d' : (isCompanyConnected ? '#166534' : (isQRReady ? '#a16207' : '#166534')),
                     fontSize: '10px',
                     fontWeight: '700',
                     cursor: 'pointer',
@@ -3893,12 +3903,18 @@ export default function ConversationsPage({
                   }}
                   title={
                     isOwnerOrAdmin
-                      ? (isCompanyConnected ? `Company Official Line Connected: +${companyPhone}. Click to view` : 'Connect Company Official WhatsApp')
+                      ? (isCompanyConnected 
+                          ? `Company Official Line Connected: +${companyPhone}. Click to view` 
+                          : isCompanyConnectingWithPhone 
+                            ? `Reconnecting +${companyPhone}... Click to view` 
+                            : 'Connect Company Official WhatsApp')
                       : (isDedicatedConnected 
                           ? `My Dedicated Work WA Connected: +${myDedicatedPhone}. Click to view` 
-                          : (isCompanyConnected 
-                              ? `Company Line (+${companyPhone}) Active as Fallback. Click to Link Your Own WhatsApp Line` 
-                              : 'Link Work WhatsApp / Scan QR'))
+                          : isDedicatedConnectingWithPhone
+                            ? `Reconnecting +${myDedicatedPhone}... Click to view`
+                            : (isCompanyConnected 
+                                ? `Company Line (+${companyPhone}) Active as Fallback. Click to Link Your Own WhatsApp Line` 
+                                : 'Link Work WhatsApp / Scan QR'))
                   }
                 >
                   {isOwnerOrAdmin ? (
@@ -3906,6 +3922,11 @@ export default function ConversationsPage({
                       <>
                         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 4px #10b981', display: 'inline-block' }} />
                         <span>{companyPhone ? `+${companyPhone}` : 'WA Live'}</span>
+                      </>
+                    ) : isCompanyConnectingWithPhone ? (
+                      <>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 4px #f59e0b', display: 'inline-block' }} />
+                        <span>+{companyPhone}</span>
                       </>
                     ) : (
                       <>
@@ -3918,6 +3939,11 @@ export default function ConversationsPage({
                       <>
                         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 4px #10b981', display: 'inline-block' }} />
                         <span>{myDedicatedPhone ? `My WA: +${myDedicatedPhone}` : 'My WA Live'}</span>
+                      </>
+                    ) : isDedicatedConnectingWithPhone ? (
+                      <>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 4px #f59e0b', display: 'inline-block' }} />
+                        <span>+{myDedicatedPhone}</span>
                       </>
                     ) : (
                       <>
