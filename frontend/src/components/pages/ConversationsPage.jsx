@@ -882,6 +882,13 @@ export default function ConversationsPage({
     }
   }, [sessions]);
 
+  // Turn off loading once a QR code is detected in session
+  useEffect(() => {
+    if (modalQrCode) {
+      setQrLoading(false);
+    }
+  }, [modalQrCode]);
+
   const activeTenantId = String(authUser?.tenantId || authUser?.companyId || companyId || '1');
 
   // Multi-Agent & Employee WhatsApp Session Scoping
@@ -6197,7 +6204,6 @@ export default function ConversationsPage({
                     <button
                       type="button"
                       onClick={() => handleStartSession(isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId, true)}
-                      disabled={qrLoading}
                       style={{
                         flex: 1,
                         padding: '10px 14px',
@@ -6207,7 +6213,7 @@ export default function ConversationsPage({
                         color: '#334155',
                         fontSize: '12px',
                         fontWeight: '700',
-                        cursor: qrLoading ? 'not-allowed' : 'pointer',
+                        cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -6245,7 +6251,6 @@ export default function ConversationsPage({
                             setQrLoading(false);
                           }
                         }}
-                        disabled={qrLoading}
                         style={{
                           padding: '10px 14px',
                           borderRadius: '10px',
@@ -6254,7 +6259,7 @@ export default function ConversationsPage({
                           color: '#e11d48',
                           fontSize: '12px',
                           fontWeight: '700',
-                          cursor: qrLoading ? 'not-allowed' : 'pointer'
+                          cursor: 'pointer'
                         }}
                         title="Wipe stale conflicting sessions and generate 1 clean QR code"
                       >
