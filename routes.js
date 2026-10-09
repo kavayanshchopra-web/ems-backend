@@ -1472,8 +1472,11 @@ export default function setupRoutes(io) {
       const plan = await getTenantPlanDetails(activeTenant).catch(() => null);
       const currentSessions = await getAllSessions(activeTenant).catch(() => []);
       
-      const sessionId = req.body?.id || `session_${activeTenant}_primary`;
+      let sessionId = req.body?.id;
       const isEmployeeLine = sessionId?.includes('_emp_') || phoneName?.toLowerCase().includes('employee');
+      if (!sessionId || (!isEmployeeLine && !sessionId.includes('_primary') && sessionId !== 'primary')) {
+        sessionId = `session_${activeTenant}_primary`;
+      }
 
       // Dedicated employee personal lines do not consume the company official channels plan limit
       const companyChannels = currentSessions.filter(s => !s.id?.includes('_emp_'));
@@ -1508,6 +1511,18 @@ export default function setupRoutes(io) {
           console.error('Error auto-starting session:', err);
         });
         sessions = await getAllSessions(activeTenant);
+      } else {
+        // Auto-prune orphaned non-primary sessions that have no active phone number
+        const primarySession = sessions.find(s => s.id === `session_${activeTenant}_primary` || s.id === 'primary');
+        if (primarySession) {
+          const orphans = sessions.filter(s => s.id !== primarySession.id && !s.id.includes('_emp_') && !s.phone_number);
+          for (const orphan of orphans) {
+            destroySession(orphan.id).catch(() => {});
+          }
+          if (orphans.length > 0) {
+            sessions = sessions.filter(s => !orphans.some(o => o.id === s.id));
+          }
+        }
       }
       res.json(sessions);
     } catch (err) {
@@ -1542,10 +1557,11 @@ export default function setupRoutes(io) {
       }
 
       const force = req.query.force === 'true' || req.body?.force === true;
+      const wipeAuth = req.query.wipeAuth === 'true' || req.body?.wipeAuth === true;
 
       // If session is already fully connected, do NOT kill socket unless forced
       if (!force && session && session.status === 'connected') {
-        return res.json({ message: 'Session is already in progress', id, status: session.status });
+        return res.json({ message: 'Session is already connected', id, status: session.status, phoneNumber: session.phone_number });
       }
 
       // If session already has a valid live QR code ready in DB and not forcing, return it
@@ -1553,10 +1569,11 @@ export default function setupRoutes(io) {
         return res.json({ message: 'QR Code already active', id, status: session.status, qr_code: session.qr_code });
       }
 
-      // Force cleanup of any stale socket so Baileys generates a fresh live QR code
+      // Force cleanup of any stale socket and credentials so Baileys generates a fresh live QR code
+      const shouldClean = force || wipeAuth;
       await stopSession(id).catch(() => {});
 
-      startSession(id, io).catch(err => {
+      startSession(id, io, shouldClean).catch(err => {
         console.error('Error starting session:', err);
       });
       res.json({ message: 'Session start initiated', id });
