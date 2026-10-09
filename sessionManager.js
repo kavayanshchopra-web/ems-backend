@@ -188,22 +188,7 @@ export async function startSession(id, io, forceClean = false) {
     }
   }
 
-  // If credentials exist but are unlinked/corrupted (no registered user), clean them so a fresh cryptographic keypair is generated
-  if (fs.existsSync(sessionPath)) {
-    try {
-      const credsPath = path.join(sessionPath, 'creds.json');
-      if (fs.existsSync(credsPath)) {
-        const credsRaw = fs.readFileSync(credsPath, 'utf8');
-        const creds = JSON.parse(credsRaw);
-        if (!creds?.me?.id && !creds?.registered) {
-          console.log(`[Session ${id}] Cleaning unlinked auth folder for fresh QR keys...`);
-          fs.rmSync(sessionPath, { recursive: true, force: true });
-        }
-      }
-    } catch (e) {
-      console.warn(`[Session ${id}] Creds validation warning:`, e.message);
-    }
-  }
+
 
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
 
@@ -273,8 +258,9 @@ export async function startSession(id, io, forceClean = false) {
       }
     } else if (connection === 'connecting') {
       console.log(`[Session ${id}] Connecting...`);
-      await updateSessionStatus(id, 'connecting', null, null);
-      emitToTenant('session_update', { id, status: 'connecting' });
+      const cur = await getSession(id).catch(() => null);
+      await updateSessionStatus(id, 'connecting', null, cur?.phone_number || null);
+      emitToTenant('session_update', { id, status: 'connecting', phoneNumber: cur?.phone_number || null });
     }
 
     if (connection === 'open') {
@@ -282,15 +268,20 @@ export async function startSession(id, io, forceClean = false) {
       const phoneNumber = rawUser.split(':')[0];
       console.log(`[Session ${id}] Connected successfully as ${phoneNumber}`);
       
-      let profilePicUrl = null;
-      try {
-        profilePicUrl = await sock.profilePictureUrl(phoneNumber + '@s.whatsapp.net', 'image');
-      } catch (err) {
-        // Ignore if no profile picture exists or restricted
-      }
-      
-      await updateSessionStatus(id, 'connected', null, phoneNumber, profilePicUrl);
-      emitToTenant('session_update', { id, status: 'connected', phoneNumber, profilePicUrl });
+      // Update session status IMMEDIATELY in 0ms so UI marks 'connected'
+      await updateSessionStatus(id, 'connected', null, phoneNumber, null);
+      emitToTenant('session_update', { id, status: 'connected', phoneNumber, profilePicUrl: null });
+
+      // Fetch profile pic in background without blocking connected state
+      (async () => {
+        try {
+          const profilePicUrl = await sock.profilePictureUrl(phoneNumber + '@s.whatsapp.net', 'image');
+          if (profilePicUrl) {
+            await updateSessionStatus(id, 'connected', null, phoneNumber, profilePicUrl);
+            emitToTenant('session_update', { id, status: 'connected', phoneNumber, profilePicUrl });
+          }
+        } catch (_) {}
+      })();
     }
 
     if (connection === 'close') {
