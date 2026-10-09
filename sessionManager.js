@@ -139,7 +139,7 @@ export async function initAllSessions(io) {
 }
 
 // Start a single WhatsApp session
-export async function startSession(id, io) {
+export async function startSession(id, io, forceClean = false) {
   // Cancel any pending reconnect timer for this session
   if (reconnectTimers.has(id)) {
     clearTimeout(reconnectTimers.get(id));
@@ -148,7 +148,7 @@ export async function startSession(id, io) {
 
   if (activeSockets.has(id)) {
     const existingSock = activeSockets.get(id);
-    if (existingSock?.user?.id) {
+    if (!forceClean && existingSock?.user?.id) {
       console.log(`Session ${id} is already connected.`);
       return existingSock;
     }
@@ -177,6 +177,16 @@ export async function startSession(id, io) {
   };
 
   const sessionPath = path.join(sessionsDir, id);
+
+  // If force clean requested (e.g., from Refresh QR or Reset Line), wipe auth directory for fresh Baileys keys
+  if (forceClean && fs.existsSync(sessionPath)) {
+    console.log(`[Session ${id}] Force clean requested: wiping session directory for fresh QR code generation...`);
+    try {
+      fs.rmSync(sessionPath, { recursive: true, force: true });
+    } catch (err) {
+      console.warn(`[Session ${id}] Error wiping sessionPath on forceClean:`, err.message);
+    }
+  }
 
   // If credentials exist but are unlinked/corrupted (no registered user), clean them so a fresh cryptographic keypair is generated
   if (fs.existsSync(sessionPath)) {
@@ -276,8 +286,10 @@ export async function startSession(id, io) {
     }
 
     if (connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log(`[Session ${id}] Connection closed. Reason:`, lastDisconnect?.error?.message, `Reconnecting: ${shouldReconnect}`);
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 403;
+      const shouldReconnect = !isLoggedOut;
+      console.log(`[Session ${id}] Connection closed. Reason:`, lastDisconnect?.error?.message, `StatusCode: ${statusCode}`, `Reconnecting: ${shouldReconnect}`);
       if (lastDisconnect?.error) {
         console.error(`[Session ${id}] Connection error object:`, JSON.stringify(lastDisconnect.error, null, 2) || lastDisconnect.error);
       }

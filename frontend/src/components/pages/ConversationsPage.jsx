@@ -993,11 +993,11 @@ export default function ConversationsPage({
     fetchCurrentSessions();
 
     // Auto-request QR code if not already connected and no live QR code ready
-    const isBusy = isConnected || isQRReady || isConnecting;
-    if (!isBusy && !startingSessionRef.current) {
+    const hasLiveQr = Boolean(modalQrCode);
+    if (!isModalConnected && !hasLiveQr && !startingSessionRef.current) {
       startingSessionRef.current = true;
       handleStartSession(null, false).finally(() => {
-        setTimeout(() => { startingSessionRef.current = false; }, 4000);
+        setTimeout(() => { startingSessionRef.current = false; }, 3000);
       });
     }
 
@@ -1006,7 +1006,7 @@ export default function ConversationsPage({
     }, 2500);
 
     return () => clearInterval(interval);
-  }, [showQrModal, isConnected, isQRReady, isConnecting]);
+  }, [showQrModal, isModalConnected, modalQrCode]);
 
   // Start or trigger QR code generation for WhatsApp session
   const handleStartSession = async (sessId, force = false) => {
@@ -1051,18 +1051,18 @@ export default function ConversationsPage({
       }
 
       if (targetId) {
-        const url = `${API_URL}/sessions/start/${targetId}${force ? '?force=true' : ''}`;
+        const url = `${API_URL}/sessions/start/${targetId}${force ? '?force=true&wipeAuth=true' : ''}`;
         let startRes = await fetch(url, {
           method: 'POST',
           headers: reqHeaders,
-          body: JSON.stringify({ force: Boolean(force), tenantId: companyId })
+          body: JSON.stringify({ force: Boolean(force), wipeAuth: Boolean(force), tenantId: companyId })
         });
         if (!startRes.ok && targetId.includes('_emp_')) {
           // Fallback retry without tenant restriction header in case session was registered under default tenant
           startRes = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-            body: JSON.stringify({ force: Boolean(force), tenantId: 1 })
+            body: JSON.stringify({ force: Boolean(force), wipeAuth: Boolean(force), tenantId: 1 })
           });
         }
         if (startRes.ok) {
@@ -5902,25 +5902,25 @@ export default function ConversationsPage({
                         <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: '600', textAlign: 'center' }}>
                           {qrActionMsg || (isModalConnecting ? 'Connecting to WhatsApp gateway...' : 'Initializing WhatsApp session...')}
                         </span>
-                        {!isModalConnecting && (
-                          <button
-                            type="button"
-                            onClick={() => handleStartSession(isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId, true)}
-                            style={{
-                              marginTop: '6px',
-                              padding: '8px 14px',
-                              borderRadius: '8px',
-                              background: '#0d9488',
-                              color: '#ffffff',
-                              border: 'none',
-                              fontSize: '11.5px',
-                              fontWeight: '700',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Generate QR Code
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleStartSession(isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId, true)}
+                          disabled={qrLoading}
+                          style={{
+                            marginTop: '8px',
+                            padding: '9px 18px',
+                            borderRadius: '8px',
+                            background: '#0d9488',
+                            color: '#ffffff',
+                            border: 'none',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: qrLoading ? 'not-allowed' : 'pointer',
+                            boxShadow: '0 2px 8px rgba(13, 148, 136, 0.3)'
+                          }}
+                        >
+                          {qrLoading ? 'Generating QR Code...' : '⚡ Generate Fresh QR Code'}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -5958,15 +5958,20 @@ export default function ConversationsPage({
                         onClick={async () => {
                           if (!window.confirm('Kya aap WhatsApp line ko cleanly reset karna chahte hain taaki naya stable QR code generate ho sake?')) return;
                           setQrLoading(true);
+                          setQrActionMsg('Wiping stale session keys & generating fresh QR code...');
                           try {
-                            await fetch(`${API_URL}/sessions/cleanup-and-reset`, {
+                            const res = await fetch(`${API_URL}/sessions/cleanup-and-reset`, {
                               method: 'POST',
                               headers: {
                                 'Content-Type': 'application/json',
+                                'x-tenant-id': String(companyId || 1),
                                 ...(token ? { Authorization: `Bearer ${token}` } : {})
                               }
                             });
+                            const data = await res.json().catch(() => ({}));
                             await fetchCurrentSessions();
+                            const targetSess = data?.sessionId || (companyPrimarySession?.id || `session_${companyId}_primary`);
+                            await handleStartSession(targetSess, true);
                           } catch (e) {
                             console.error(e);
                           } finally {
