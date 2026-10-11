@@ -615,6 +615,26 @@ export default function SandboxAutomationHub({
     showToast('🚀 Template Imported into Visual Canvas!');
   };
 
+  // Start Clean Blank Flow (Clean Slate)
+  const handleCreateBlankFlow = () => {
+    const blankFlow = {
+      id: `custom_flow_${Date.now()}`,
+      name: 'Untitled Blank Flow',
+      category: 'custom',
+      description: 'Clean custom automation flow',
+      trigger_type: 'keyword',
+      is_active: 1,
+      nodes: [
+        { id: 'n1', type: 'trigger', label: '⚡ Inbound Trigger (Keyword: "Hi")', x: 120, y: 240 }
+      ],
+      edges: []
+    };
+    setFlows(prev => [blankFlow, ...prev]);
+    setSelectedFlow(blankFlow);
+    setActiveTab('canvas');
+    showToast('✨ Clean slate: Created new blank workflow!');
+  };
+
   // AI Prompt-to-Flow Builder
   const handleGenerateWithAI = (e) => {
     if (e) e.preventDefault();
@@ -860,7 +880,7 @@ export default function SandboxAutomationHub({
         zIndex: 50
       }}>
         {/* Left: Branding & Active Flow Switcher */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <div style={{
             width: '38px',
             height: '38px',
@@ -869,30 +889,61 @@ export default function SandboxAutomationHub({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 15px rgba(16, 185, 129, 0.35)'
+            boxShadow: '0 0 15px rgba(16, 185, 129, 0.35)',
+            flexShrink: 0
           }}>
             <Bot size={22} style={{ color: '#ffffff' }} />
           </div>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '14px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>
                 EMS Workflow Builder
               </span>
               <span style={{
-                fontSize: '10px',
+                fontSize: '9.5px',
                 fontWeight: '800',
-                padding: '2px 7px',
-                borderRadius: '12px',
+                padding: '1px 6px',
+                borderRadius: '10px',
                 background: 'rgba(16, 185, 129, 0.15)',
                 color: '#34d399',
-                border: '1px solid rgba(16, 185, 129, 0.3)'
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                whiteSpace: 'nowrap'
               }}>
-                SANDBOX ISOLATED
+                SANDBOX
               </span>
             </div>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-              Editing: <strong style={{ color: '#14d2cb' }}>{selectedFlow?.name}</strong>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+              <select
+                value={selectedFlow?.id || ''}
+                onChange={(e) => {
+                  if (e.target.value === '__new__') {
+                    handleCreateBlankFlow();
+                  } else {
+                    const found = flows.find(f => f.id === e.target.value);
+                    if (found) setSelectedFlow(found);
+                  }
+                }}
+                style={{
+                  background: 'rgba(0, 0, 0, 0.55)',
+                  border: '1px solid rgba(20, 210, 203, 0.35)',
+                  borderRadius: '6px',
+                  color: '#14d2cb',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  padding: '2px 8px',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  maxWidth: '220px'
+                }}
+              >
+                <option value="__new__">➕ + Start New Blank Flow</option>
+                <optgroup label="Saved Workflows">
+                  {flows.map(f => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </optgroup>
+              </select>
             </div>
           </div>
         </div>
