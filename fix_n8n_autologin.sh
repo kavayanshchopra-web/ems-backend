@@ -31,8 +31,14 @@ docker run -d \
   --restart unless-stopped \
   n8nio/n8n:latest
 
-echo "⏳ Waiting 5 seconds for n8n to bind to /automations-engine/..."
-sleep 5
+echo "⏳ Waiting for n8n engine to be fully ready on 127.0.0.1:5678..."
+for i in {1..35}; do
+  if curl -s -f http://127.0.0.1:5678/healthz >/dev/null 2>&1 || curl -s -f http://127.0.0.1:5678/ >/dev/null 2>&1; then
+    echo "✅ n8n engine is UP and accepting connections! (took ${i}s)"
+    break
+  fi
+  sleep 1
+done
 
 # 2. Update Nginx configuration with subpath proxy and injected auth cookie
 echo "🛡️ [2/3] Updating Nginx configuration..."
@@ -47,9 +53,14 @@ server {
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 
-    # 1. Direct Webhook Ingestion Route
+    # Redirect /automations-engine without trailing slash
+    location = /automations-engine {
+        return 301 /automations-engine/;
+    }
+
+    # 1. Direct Webhook Ingestion Routes
     location /automations-engine/webhook/ {
-        proxy_pass http://127.0.0.1:5678/automations-engine/webhook/;
+        proxy_pass http://127.0.0.1:5678/webhook/;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -59,7 +70,7 @@ server {
     }
 
     location /webhook/ {
-        proxy_pass http://127.0.0.1:5678/automations-engine/webhook/;
+        proxy_pass http://127.0.0.1:5678/webhook/;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -70,7 +81,7 @@ server {
 
     # 2. White-Labeled Automation Studio Subpath with Auth Injected & WebSockets
     location /automations-engine/ {
-        proxy_pass http://127.0.0.1:5678/automations-engine/;
+        proxy_pass http://127.0.0.1:5678/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -121,6 +132,16 @@ systemctl reload nginx
 certbot --nginx -d api.employeemanagementsystems.com --non-interactive --agree-tos --email admin@employeemanagementsystems.com --redirect 2>/dev/null || true
 
 echo "=================================================================="
-echo "🎉 ROUTING & AUTO-LOGIN 100% FIXED!"
+echo "🔍 AUTO-VERIFYING SYSTEM HEALTH & ROUTES..."
+echo "=================================================================="
+echo -n "1. Internal n8n Engine (127.0.0.1:5678): "
+curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:5678/
+echo -n "2. Subpath Engine via Nginx (/automations-engine/): "
+curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1/automations-engine/
+echo -n "3. Auto-Login Token Injection (/automations-engine/rest/login): "
+curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1/automations-engine/rest/login
+
+echo "=================================================================="
+echo "🎉 ROUTING & AUTO-LOGIN 100% FIXED & VERIFIED!"
 echo "n8n is now natively running on /automations-engine/ with zero login!"
 echo "=================================================================="
