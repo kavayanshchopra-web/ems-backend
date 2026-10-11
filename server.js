@@ -261,17 +261,7 @@ const PORT = process.env.PORT || 5000;
 
 async function start() {
   try {
-    // 1. Initialize SQLite Database
-    await initDb();
-    await paymentGatewayService.init(getDb());
-
-    // 2. Start all active sessions in the background
-    await initAllSessions(io);
-
-    // 3. Start GHL Token Expiry Background Refresh Daemon
-    ghlAuthService.startBackgroundRefreshWorker();
-
-    // 4. Socket.io handling with Multi-Tenant Room Isolation
+    // 1. Socket.io handling with Multi-Tenant Room Isolation
     io.use((socket, next) => {
       try {
         const token = socket.handshake.auth?.token || socket.handshake.query?.token;
@@ -316,11 +306,33 @@ async function start() {
       });
     });
 
-    // 4. Start listening on the port
-    server.listen(PORT, () => {
+    // 2. Start listening on the port IMMEDIATELY
+    server.listen(PORT, async () => {
       console.log(`=============================================`);
       console.log(`WhatsApp CRM Backend running on port ${PORT}`);
       console.log(`=============================================`);
+
+      // 3. Initialize SQLite/PostgreSQL Database
+      try {
+        await initDb();
+        await paymentGatewayService.init(getDb());
+      } catch (dbErr) {
+        console.error('[DB Init Notice]:', dbErr);
+      }
+
+      // 4. Start all active sessions in the background
+      try {
+        await initAllSessions(io);
+      } catch (sessErr) {
+        console.error('[Sessions Init Notice]:', sessErr);
+      }
+
+      // 5. Start GHL Token Expiry Background Refresh Daemon
+      try {
+        ghlAuthService.startBackgroundRefreshWorker();
+      } catch (ghlErr) {
+        console.error('[GHL Daemon Notice]:', ghlErr);
+      }
     });
   } catch (error) {
     console.error('Failed to start server:', error);
