@@ -54,6 +54,7 @@ import {
   CreditCard,
   GitBranch,
   Bell,
+  Save,
   ChevronLeft
 } from 'lucide-react';
 import { MASTER_AUTOMATION_TEMPLATES } from './automationTemplatesData';
@@ -906,11 +907,10 @@ export default function SandboxAutomationHub({
           border: '1px solid rgba(255, 255, 255, 0.08)'
         }}>
           {[
-            { id: 'canvas', label: '🎨 Visual 2D Branching Graph', icon: Sliders },
+            { id: 'canvas', label: '🎨 Visual 2D Canvas', icon: Sliders },
             { id: 'n8n_embed', label: '⚡ Enterprise Studio (400+ Apps)', icon: Zap },
-            { id: 'templates', label: `🏪 300+ Templates (${flows.length})`, icon: Layers },
-            { id: 'ai_builder', label: '✨ AI Flow Generator', icon: Sparkles },
-            { id: 'analytics', label: '📊 Funnel Drop-off', icon: TrendingUp }
+            { id: 'templates', label: `🏷️ Industry Templates (${flows.length})`, icon: Layers },
+            { id: 'ai_builder', label: '✨ Ask AI Copilot', icon: Sparkles }
           ].map(t => {
             const Icon = t.icon;
             const isActive = activeTab === t.id;
@@ -940,8 +940,57 @@ export default function SandboxAutomationHub({
           })}
         </div>
 
-        {/* Right: Engine Status & Actions */}
+        {/* Right: Flow Controls & Live Testing */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Active / Pause Toggle Button */}
+          {selectedFlow && (
+            <button
+              onClick={(e) => handleToggleFlow(selectedFlow.id, selectedFlow.is_active, e)}
+              title={selectedFlow.is_active ? 'Click to Pause Workflow' : 'Click to Activate Workflow'}
+              style={{
+                background: selectedFlow.is_active ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                border: `1px solid ${selectedFlow.is_active ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                borderRadius: '8px',
+                padding: '7px 12px',
+                color: selectedFlow.is_active ? '#34d399' : '#f87171',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {selectedFlow.is_active ? <Pause size={12} /> : <Play size={12} />}
+              <span>{selectedFlow.is_active ? 'Active' : 'Paused'}</span>
+            </button>
+          )}
+
+          {/* Save Flow to Database */}
+          <button
+            onClick={() => handleSaveFlowToBackend(selectedFlow)}
+            title="Save workflow changes to database"
+            style={{
+              background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
+              border: '1px solid rgba(20, 210, 203, 0.4)',
+              borderRadius: '8px',
+              padding: '7px 14px',
+              color: '#ffffff',
+              fontSize: '11.5px',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 8px rgba(13, 148, 136, 0.35)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Save size={13} />
+            <span>Save Flow</span>
+          </button>
+
           {/* Live Test on WhatsApp Button */}
           <button
             onClick={() => setShowLiveTestModal(true)}
@@ -964,9 +1013,10 @@ export default function SandboxAutomationHub({
             <span>⚡ Test on WhatsApp</span>
           </button>
 
-          {/* Dual-Engine Mode Indicator */}
+          {/* Cloud Engine Indicator & Config */}
           <button
             onClick={() => setShowSettingsModal(true)}
+            title="Cloud Automation Engine Settings"
             style={{
               background: 'rgba(255, 255, 255, 0.06)',
               border: '1px solid rgba(255, 255, 255, 0.12)',
@@ -984,51 +1034,6 @@ export default function SandboxAutomationHub({
             <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
             <span>Cloud Engine</span>
             <Settings size={13} style={{ color: '#94a3b8' }} />
-          </button>
-
-          {/* Sync to Cloud Button */}
-          <button
-            onClick={handleSyncActiveFlowToCloud}
-            disabled={isSyncingFlow}
-            title="Deploy and sync this workflow to Cloud Automation Engine"
-            style={{
-              background: 'rgba(13, 148, 136, 0.2)',
-              border: '1px solid rgba(13, 148, 136, 0.4)',
-              borderRadius: '8px',
-              padding: '7px 12px',
-              color: '#2dd4bf',
-              fontSize: '11.5px',
-              fontWeight: '700',
-              cursor: isSyncingFlow ? 'wait' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <RefreshCw size={12} className={isSyncingFlow ? 'spin' : ''} />
-            <span>{isSyncingFlow ? 'Syncing...' : 'Sync Cloud'}</span>
-          </button>
-
-          {/* Export Workflow JSON */}
-          <button
-            onClick={handleExportN8n}
-            title="Export standard workflow JSON"
-            style={{
-              background: 'rgba(99, 102, 241, 0.15)',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
-              borderRadius: '8px',
-              padding: '7px 12px',
-              color: '#a5b4fc',
-              fontSize: '11.5px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Download size={13} />
-            <span>Export JSON</span>
           </button>
 
           {/* Toggle Simulator */}
@@ -1280,101 +1285,6 @@ export default function SandboxAutomationHub({
                       </button>
                     );
                   })}
-              </div>
-
-              {/* Bottom Switch to Full Enterprise Studio Link */}
-              <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                <button
-                  onClick={() => {
-                    setActiveTab('n8n_embed');
-                    showToast('⚡ Opened Enterprise Studio (400+ Apps Canvas)!');
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '7px 10px',
-                    borderRadius: '7px',
-                    background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%)',
-                    border: '1px solid rgba(20, 210, 203, 0.35)',
-                    color: '#2dd4bf',
-                    fontSize: '11px',
-                    fontWeight: '800',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    marginBottom: '8px'
-                  }}
-                >
-                  <Zap size={12} />
-                  <span>Open Full Studio (400+ Apps)</span>
-                </button>
-
-                {/* Quick Flow Actions */}
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button
-                    onClick={(e) => handleToggleFlow(selectedFlow.id, selectedFlow.is_active, e)}
-                    style={{
-                      flex: 1,
-                      padding: '7px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      background: selectedFlow.is_active ? '#ef4444' : '#10b981',
-                      color: '#ffffff',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    {selectedFlow.is_active ? <Pause size={12} /> : <Play size={12} />}
-                    <span>{selectedFlow.is_active ? 'Pause' : 'Activate'}</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleSaveFlowToBackend(selectedFlow)}
-                    style={{
-                      flex: 1,
-                      padding: '7px',
-                      borderRadius: '6px',
-                      background: '#0d9488',
-                      border: 'none',
-                      color: '#ffffff',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Save
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setShowLiveTestModal(true)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
-                    border: '1px solid rgba(16, 185, 129, 0.5)',
-                    color: '#ffffff',
-                    fontSize: '11.5px',
-                    fontWeight: '800',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.35)',
-                    marginTop: '8px'
-                  }}
-                >
-                  <Zap size={13} />
-                  <span>⚡ Test on WhatsApp</span>
-                </button>
               </div>
             </div>
           )}
@@ -2746,27 +2656,6 @@ export default function SandboxAutomationHub({
               }}
               onError={() => setN8nStatus('Offline')}
             />
-
-            {/* Status Footer Badge */}
-            <div style={{
-              position: 'absolute',
-              bottom: '24px',
-              left: '24px',
-              background: 'rgba(17, 27, 33, 0.95)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              borderRadius: '12px',
-              padding: '10px 16px',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              zIndex: 20
-            }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
-              <div style={{ fontSize: '11.5px', color: '#e2e8f0' }}>
-                <strong>Cloud Automation Engine:</strong> <span style={{ color: '#34d399' }}>Active & Multi-Tenant Isolated</span>
-              </div>
-            </div>
           </div>
         </div>
       )}
