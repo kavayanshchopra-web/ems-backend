@@ -1589,7 +1589,7 @@ export default function setupRoutes(io) {
       }
 
       // If session is disconnected or force/wipe is requested, clean up stale socket and auth
-      const shouldClean = force || wipeAuth || !session || session.status !== 'connected';
+      const shouldClean = force || wipeAuth || !session || session.status === 'disconnected';
       await stopSession(id).catch(() => {});
 
       startSession(id, io, shouldClean).catch(err => {
