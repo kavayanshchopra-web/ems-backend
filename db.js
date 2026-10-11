@@ -3,7 +3,7 @@ import sqlite3 from 'sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import { postgresAdapter, getPgPool } from './postgresDb.js';
+import { postgresAdapter, getPgPool, DEFAULT_PG_URL } from './postgresDb.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, 'database.sqlite');
@@ -11,7 +11,8 @@ const dbPath = path.join(__dirname, 'database.sqlite');
 let db;
 
 export async function initDb() {
-  if (process.env.DATABASE_URL) {
+  const pgUrl = process.env.DATABASE_URL || DEFAULT_PG_URL;
+  if (pgUrl) {
     try {
       const pool = getPgPool();
       await pool.query('SELECT 1');
@@ -30,6 +31,18 @@ export async function initDb() {
           const fs = await import('fs');
           if (fs.existsSync(dbPath)) {
             const sqliteDb = await open({ filename: dbPath, driver: sqlite3.Database });
+            
+            // Sync WhatsApp sessions if missing in PostgreSQL
+            const sqliteSessions = await sqliteDb.all('SELECT * FROM whatsapp_sessions').catch(() => []);
+            for (const ss of sqliteSessions) {
+              await db.run(
+                `INSERT OR IGNORE INTO whatsapp_sessions (id, phone_name, phone_number, status, qr_code, profile_pic_url, tenant_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [ss.id, ss.phone_name, ss.phone_number, ss.status, ss.qr_code, ss.profile_pic_url, ss.tenant_id || 1]
+              ).catch(() => {});
+            }
+
+            // Sync messages if missing in PostgreSQL
             const mCount = await sqliteDb.get('SELECT COUNT(*) as count FROM messages').catch(() => ({ count: 0 }));
             if (mCount?.count > 0) {
               console.log(`[PostgreSQL Migration Engine] Found ${mCount.count} messages in local SQLite: syncing to Supabase PostgreSQL...`);
