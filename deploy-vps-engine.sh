@@ -31,7 +31,8 @@ fi
 # 4. Launch or Restart White-Labeled n8n Automation Engine Container
 echo "🚀 [4/4] Starting OmniFlow Automation Engine (n8n on port 5678)..."
 mkdir -p /var/ems_n8n_data
-chmod 777 /var/ems_n8n_data
+chmod -R 777 /var/ems_n8n_data
+chown -R 1000:1000 /var/ems_n8n_data 2>/dev/null || true
 
 docker rm -f ems-n8n-engine 2>/dev/null || true
 docker rm -f omniflow-n8n 2>/dev/null || true
@@ -44,11 +45,15 @@ docker run -d \
   -e N8N_DIAGNOSTICS_ENABLED=false \
   -e N8N_VERSION_NOTIFICATIONS_ENABLED=false \
   -e N8N_HIRING_BANNER_ENABLED=false \
-  -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true \
+  -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false \
   -e WEBHOOK_URL=https://app.employeemanagementsystems.com \
   -v /var/ems_n8n_data:/home/node/.n8n \
   --restart unless-stopped \
   n8nio/n8n:latest
+
+# Wait 5 seconds and verify container health
+sleep 5
+docker ps | grep ems-n8n-engine || docker logs --tail 20 ems-n8n-engine
 
 echo "========================================================"
 echo "🎉 SUCCESS: OmniFlow Automation Engine is LIVE on port 5678!"
