@@ -1337,6 +1337,9 @@ export async function initDb() {
   try {
     await db.exec(`ALTER TABLE whatsapp_sessions ADD COLUMN profile_pic_url TEXT`);
   } catch (err) {}
+  try {
+    await db.exec(`ALTER TABLE scheduled_messages ADD COLUMN scheduled_at DATETIME`);
+  } catch (err) {}
 
   // Database cleanup: Remove legacy @lid entries and incorrect placeholders
   try {
@@ -1968,21 +1971,37 @@ export async function toggleChatbotRule(id, isActive, tenantId = 1) {
 
 // Scheduled Messages Helpers
 export async function saveScheduledMessage(sessionId, contactId, text, sendAt, tenantId = 1) {
-  const scheduledDate = new Date(sendAt * 1000);
+  const scheduledDate = new Date(sendAt * 1000).toISOString();
   const numTenant = Number(tenantId) || 1;
-  const result = await db.run(
-    `INSERT INTO scheduled_messages (session_id, contact_id, message_text, send_at, scheduled_at, status, tenant_id) VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
-    [sessionId, contactId, text, sendAt, scheduledDate, numTenant]
-  );
-  return await db.get(`SELECT * FROM scheduled_messages WHERE id = ? AND tenant_id = ?`, [result.lastID, numTenant]);
+  try {
+    const result = await db.run(
+      `INSERT INTO scheduled_messages (session_id, contact_id, message_text, send_at, scheduled_at, status, tenant_id) VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+      [sessionId, contactId, text, sendAt, scheduledDate, numTenant]
+    );
+    return await db.get(`SELECT * FROM scheduled_messages WHERE id = ? AND tenant_id = ?`, [result.lastID, numTenant]);
+  } catch (e) {
+    const result = await db.run(
+      `INSERT INTO scheduled_messages (session_id, contact_id, message_text, send_at, status, tenant_id) VALUES (?, ?, ?, ?, 'pending', ?)`,
+      [sessionId, contactId, text, sendAt, numTenant]
+    );
+    return await db.get(`SELECT * FROM scheduled_messages WHERE id = ? AND tenant_id = ?`, [result.lastID, numTenant]);
+  }
 }
 
 export async function getPendingScheduledMessages() {
   const nowUnix = Math.floor(Date.now() / 1000);
-  return await db.all(
-    `SELECT * FROM scheduled_messages WHERE status = 'pending' AND (send_at <= ? OR scheduled_at <= NOW())`,
-    [nowUnix]
-  );
+  const nowIso = new Date().toISOString();
+  try {
+    return await db.all(
+      `SELECT * FROM scheduled_messages WHERE status = 'pending' AND (send_at <= ? OR (scheduled_at IS NOT NULL AND scheduled_at <= ?))`,
+      [nowUnix, nowIso]
+    );
+  } catch (err) {
+    return await db.all(
+      `SELECT * FROM scheduled_messages WHERE status = 'pending' AND send_at <= ?`,
+      [nowUnix]
+    );
+  }
 }
 
 export async function updateScheduledMessageStatus(id, status, errorMessage = null) {
