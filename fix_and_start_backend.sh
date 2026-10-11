@@ -53,17 +53,26 @@ pm2 save
 
 # 5. Verify local port 5000 and public API
 echo "🔍 [4/4] Verifying Express Backend Connectivity..."
-sleep 3
 
-echo -n "1. Local Port 5000 Health: "
-curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:5000/api/health || curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:5000/
+ONLINE=0
+for i in {1..12}; do
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/api/health || true)
+  if [ "$CODE" = "200" ]; then
+    echo "✅ Local Port 5000 is UP and responding: HTTP 200 (took ${i}s)"
+    ONLINE=1
+    break
+  fi
+  sleep 1
+done
 
-echo -n "2. Public Sessions API: "
-curl -s -o /dev/null -w "HTTP %{http_code}\n" https://api.employeemanagementsystems.com/api/sessions
-
-echo ""
-pm2 status
-echo "=================================================================="
-echo "🎉 EXPRESS BACKEND IS NOW ONLINE!"
-echo "Ab app.employeemanagementsystems.com par jakar QR scan karein!"
-echo "=================================================================="
+if [ "$ONLINE" -eq 0 ]; then
+  echo "⚠️ Notice: Port 5000 not responding yet. Checking PM2 error logs:"
+  pm2 logs whatsapp-crm-gateway --lines 20 --nostream || true
+else
+  echo -n "2. Public Sessions API: "
+  curl -s -o /dev/null -w "HTTP %{http_code}\n" https://api.employeemanagementsystems.com/api/sessions || true
+  echo "=================================================================="
+  echo "🎉 EXPRESS BACKEND IS NOW ONLINE & ACCEPTING CONNECTIONS!"
+  echo "Ab app.employeemanagementsystems.com par jakar QR scan karein!"
+  echo "=================================================================="
+fi
