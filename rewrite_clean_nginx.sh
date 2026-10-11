@@ -36,7 +36,7 @@ server {
 
     # 1. White-Labeled Automation Studio Reverse Proxy (n8n Port 5678)
     location /automations-engine/ {
-        proxy_pass http://127.0.0.1:5678;
+        proxy_pass http://127.0.0.1:5678/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -61,7 +61,26 @@ server {
         sub_filter_once off;
     }
 
-    # 2. Webhook Ingestion Route
+    # 2. n8n Frontend Static Assets & Bundles
+    location /assets/ {
+        proxy_pass http://127.0.0.1:5678/assets/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 120s;
+    }
+
+    # 3. n8n Internal REST & Realtime APIs
+    location /rest/ {
+        proxy_pass http://127.0.0.1:5678/rest/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400s;
+    }
+
+    # 4. Webhook Ingestion Route
     location /webhook/ {
         proxy_pass http://127.0.0.1:5678/webhook/;
         proxy_http_version 1.1;

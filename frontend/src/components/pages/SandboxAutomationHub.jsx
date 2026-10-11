@@ -272,7 +272,7 @@ export default function SandboxAutomationHub({
 
   // Embedded Automation Studio State (100% White-Labeled)
   const defaultEngineUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? `${window.location.origin}/automations-engine/`
+    ? 'https://api.employeemanagementsystems.com/automations-engine/'
     : 'http://localhost:5678';
   const [n8nUrl, setN8nUrl] = useState(defaultEngineUrl);
   const [n8nIframeKey, setN8nIframeKey] = useState(1);
