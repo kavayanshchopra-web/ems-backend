@@ -36,7 +36,7 @@ server {
 
     # 1. White-Labeled Automation Studio Reverse Proxy (n8n Port 5678)
     location /automations-engine/ {
-        proxy_pass http://127.0.0.1:5678/;
+        proxy_pass http://127.0.0.1:5678;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -48,6 +48,17 @@ server {
         proxy_buffering off;
         proxy_read_timeout 86400s;
         proxy_send_timeout 86400s;
+
+        # 🛡️ Strip n8n X-Frame-Options to allow embedding in app.employeemanagementsystems.com
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Content-Security-Policy;
+        add_header Content-Security-Policy "frame-ancestors 'self' https://app.employeemanagementsystems.com https://*.employeemanagementsystems.com *" always;
+
+        # 🎨 White-Label UI Text Replacement
+        sub_filter_types text/html text/css text/javascript application/javascript;
+        sub_filter '<title>n8n' '<title>OmniFlow Automation Studio';
+        sub_filter 'n8n - Workflow Automation' 'OmniFlow Automation Studio';
+        sub_filter_once off;
     }
 
     # 2. Webhook Ingestion Route
