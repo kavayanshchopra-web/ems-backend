@@ -219,28 +219,14 @@ export async function startSession(id, io, forceClean = false) {
 
   const sessionPath = path.join(sessionsDir, id);
 
-  // If force clean requested OR if disconnected session has stale/unauthenticated files, wipe auth directory
-  let shouldWipeAuth = Boolean(forceClean);
-  if (!shouldWipeAuth && fs.existsSync(sessionPath) && session?.status !== 'connected') {
-    try {
-      const credsPath = path.join(sessionPath, 'creds.json');
-      if (fs.existsSync(credsPath)) {
-        const rawCreds = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
-        if (!rawCreds?.me?.id) {
-          shouldWipeAuth = true;
-        }
-      }
-    } catch (_) {
-      shouldWipeAuth = true;
-    }
-  }
-
-  if (shouldWipeAuth && fs.existsSync(sessionPath)) {
-    console.log(`[Session ${id}] Clean auth requested/needed: wiping session directory for fresh QR code generation...`);
+  // ONLY wipe auth directory if explicitly requested via forceClean (e.g. from Refresh QR / Reset Line)
+  // NEVER wipe automatically during normal reconnects or while phone pairing is in progress!
+  if (forceClean && fs.existsSync(sessionPath)) {
+    console.log(`[Session ${id}] Force clean requested: wiping session directory for fresh QR code generation...`);
     try {
       fs.rmSync(sessionPath, { recursive: true, force: true });
     } catch (err) {
-      console.warn(`[Session ${id}] Error wiping sessionPath:`, err.message);
+      console.warn(`[Session ${id}] Error wiping sessionPath on forceClean:`, err.message);
     }
   }
 
@@ -366,7 +352,7 @@ export async function startSession(id, io, forceClean = false) {
       if (shouldReconnect) {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const isRestartRequired = statusCode === DisconnectReason.restartRequired; // Code 515 handshake restart
-        const delayMs = isRestartRequired ? 200 : 2500; // Immediate reconnect on Code 515 for fast linking!
+        const delayMs = isRestartRequired ? 500 : 2500; // Allow 500ms for creds to write to disk before Code 515 reconnect
 
         if (reconnectTimers.has(id)) {
           clearTimeout(reconnectTimers.get(id));
@@ -398,7 +384,13 @@ export async function startSession(id, io, forceClean = false) {
   });
 
   // Save auth credentials whenever updated
-  sock.ev.on('creds.update', saveCreds);
+  sock.ev.on('creds.update', async () => {
+    try {
+      await saveCreds();
+    } catch (err) {
+      console.warn(`[Session ${id}] Error in saveCreds:`, err.message);
+    }
+  });
 
   // Handle WhatsApp History Sync (Sync chats, contacts, and messages from phone inside transactions)
   sock.ev.on('messaging-history.set', (history) => {
