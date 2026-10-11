@@ -18,11 +18,38 @@ export async function initDb() {
       console.log('⚡ Connected to Supabase PostgreSQL 17 Master Database successfully!');
       db = postgresAdapter;
       try {
-        const { initPostgresSandboxTables } = await import('../init_sandbox_automations_pg.mjs');
+        const { initPostgresSandboxTables } = await import('./init_sandbox_automations_pg.mjs');
         await initPostgresSandboxTables();
       } catch (sbErr) {
         console.warn('[Sandbox Postgre Init Warn]', sbErr.message);
       }
+
+      // Proactive background auto-migration from local/VPS SQLite if present
+      (async () => {
+        try {
+          const fs = await import('fs');
+          if (fs.existsSync(dbPath)) {
+            const sqliteDb = await open({ filename: dbPath, driver: sqlite3.Database });
+            const mCount = await sqliteDb.get('SELECT COUNT(*) as count FROM messages').catch(() => ({ count: 0 }));
+            if (mCount?.count > 0) {
+              console.log(`[PostgreSQL Migration Engine] Found ${mCount.count} messages in local SQLite: syncing to Supabase PostgreSQL...`);
+              const sqliteMsgs = await sqliteDb.all('SELECT * FROM messages');
+              for (const sm of sqliteMsgs) {
+                await db.run(
+                  `INSERT OR IGNORE INTO messages (id, session_id, contact_id, from_me, text_content, media_url, media_type, timestamp, is_read, status, tenant_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                  [sm.id, sm.session_id, sm.contact_id, sm.from_me ? 1 : 0, sm.text_content, sm.media_url, sm.media_type || 'text', sm.timestamp, sm.is_read || 0, sm.status || 0, sm.tenant_id || 1]
+                ).catch(() => {});
+              }
+              console.log(`[PostgreSQL Migration Engine] ✅ Successfully synced ${sqliteMsgs.length} messages to PostgreSQL!`);
+            }
+            await sqliteDb.close().catch(() => {});
+          }
+        } catch (migErr) {
+          console.warn('[Auto-Migration Notice]', migErr.message);
+        }
+      })();
+
       return db;
     } catch (pgErr) {
       console.error('❌ Failed to connect to Supabase PostgreSQL, falling back to SQLite:', pgErr.message);
@@ -1827,24 +1854,23 @@ export async function getRecentChats(tenantId = 1, limit = 2000, offset = 0) {
     ),
     UnreadSummary AS (
       SELECT 
-        COALESCE(NULLIF(phone10, ''), contact_id) as unread_key,
-        phone10,
         contact_id,
+        phone10,
         COUNT(*) as unread_count
       FROM CleanMsgs
       WHERE from_me = 0 AND (is_read = 0 OR is_read IS NULL)
-      GROUP BY COALESCE(NULLIF(phone10, ''), contact_id)
+      GROUP BY contact_id, phone10
     )
     SELECT c.*, 
-           COALESCE(NULLIF(c.name, ''), c.custom_name, REPLACE(REPLACE(c.id, '@s.whatsapp.net', ''), '@g.us', '')) as displayName,
-           REPLACE(REPLACE(c.id, '@s.whatsapp.net', ''), '@g.us', '') as phone_computed,
-           lm.text_content as last_message_text,
-           lm.text_content as lastMessage,
-           lm.timestamp as last_message_time,
-           lm.timestamp as lastMessageTime,
-           lm.from_me as last_message_from_me,
-           lm.media_type as last_message_media_type,
-           COALESCE(us.unread_count, 0) as unread_count
+           COALESCE(NULLIF(c.name, ''), c.custom_name, REPLACE(REPLACE(c.id, '@s.whatsapp.net', ''), '@g.us', '')) as "displayName",
+           REPLACE(REPLACE(c.id, '@s.whatsapp.net', ''), '@g.us', '') as "phone_computed",
+           lm.text_content as "last_message_text",
+           lm.text_content as "lastMessage",
+           lm.timestamp as "last_message_time",
+           lm.timestamp as "lastMessageTime",
+           lm.from_me as "last_message_from_me",
+           lm.media_type as "last_message_media_type",
+           COALESCE(us.unread_count, 0) as "unread_count"
     FROM contacts c
     LEFT JOIN LatestMsg lm ON (
       lm.phone10 = SUBSTR(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.phone_normalized, c.phone, c.id), '@s.whatsapp.net', ''), '+', ''), ' ', ''), '-', ''), -10)
@@ -1853,7 +1879,6 @@ export async function getRecentChats(tenantId = 1, limit = 2000, offset = 0) {
     LEFT JOIN UnreadSummary us ON (
       (us.phone10 IS NOT NULL AND us.phone10 != '' AND us.phone10 = SUBSTR(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.phone_normalized, c.phone, c.id), '@s.whatsapp.net', ''), '+', ''), ' ', ''), '-', ''), -10))
       OR us.contact_id = c.id
-      OR us.unread_key = c.id
     )
     WHERE c.tenant_id = ? 
       AND c.id != '0@s.whatsapp.net' 
@@ -1864,17 +1889,35 @@ export async function getRecentChats(tenantId = 1, limit = 2000, offset = 0) {
   `, [tenantId, tenantId, limit, offset]);
   
   return chats.map(c => {
+    const dName = c.displayName || c.displayname || c.name || c.custom_name || (c.id ? c.id.split('@')[0] : '');
+    const lMsg = c.lastMessage || c.lastmessage || c.last_message_text || c.last_message || '';
+    let lTime = Number(c.lastMessageTime || c.lastmessagetime || c.last_message_time || 0) || 0;
+    if (lTime && lTime < 10000000000) {
+      lTime = lTime * 1000;
+    }
+    const uCount = Number(c.unread_count || c.unreadcount || 0) || 0;
+
     try {
-      c.labels = JSON.parse(c.labels || '[]');
+      c.labels = typeof c.labels === 'string' ? JSON.parse(c.labels || '[]') : (c.labels || []);
     } catch {
       c.labels = [];
     }
-    c.name = c.name || c.custom_name || c.displayName || c.phone_computed;
-    c.phone = c.phone_computed || (c.id && c.id.includes('@') ? c.id.split('@')[0] : c.id);
-    if (c.lastMessageTime && c.lastMessageTime < 10000000000) {
-      c.lastMessageTime = c.lastMessageTime * 1000;
-    }
-    return c;
+
+    const phoneComputed = c.phone_computed || (c.id && c.id.includes('@') ? c.id.split('@')[0] : c.id);
+    const nameFinal = c.name || c.custom_name || dName || phoneComputed;
+
+    return {
+      ...c,
+      name: nameFinal,
+      phone: phoneComputed,
+      displayName: dName,
+      lastMessage: lMsg,
+      lastMessageTime: lTime,
+      last_message_text: lMsg,
+      last_message_time: lTime,
+      unread_count: uCount,
+      unreadCount: uCount
+    };
   });
 }
 

@@ -31,6 +31,11 @@ export function convertSqliteToPostgres(sql) {
     return 'SELECT 1';
   }
 
+  // Handle transaction commands in pool environment
+  if (/^\s*(BEGIN\s+TRANSACTION|BEGIN|COMMIT|ROLLBACK)\s*;?\s*$/i.test(sql.trim())) {
+    return 'SELECT 1';
+  }
+
   let paramIndex = 1;
   let converted = sql.replace(/\?/g, () => `$${paramIndex++}`);
   
@@ -54,9 +59,13 @@ export function convertSqliteToPostgres(sql) {
     if (/ghl_entity_links/i.test(converted) && !/ON\s+CONFLICT/i.test(converted)) {
       converted += ' ON CONFLICT (location_id, entity_type, ems_entity_id) DO UPDATE SET ghl_entity_id = EXCLUDED.ghl_entity_id, last_synced_hash = EXCLUDED.last_synced_hash, last_synced_at = NOW()';
     } else if (/messages/i.test(converted) && !/ON\s+CONFLICT/i.test(converted)) {
-      converted += ' ON CONFLICT (id) DO UPDATE SET text_content = EXCLUDED.text_content, status = EXCLUDED.status, is_read = EXCLUDED.is_read';
+      converted += ' ON CONFLICT (id) DO UPDATE SET session_id = EXCLUDED.session_id, contact_id = EXCLUDED.contact_id, from_me = EXCLUDED.from_me, text_content = EXCLUDED.text_content, media_url = COALESCE(EXCLUDED.media_url, messages.media_url), media_type = COALESCE(EXCLUDED.media_type, messages.media_type), timestamp = EXCLUDED.timestamp, is_read = EXCLUDED.is_read, status = EXCLUDED.status, tenant_id = EXCLUDED.tenant_id, is_deleted = COALESCE(EXCLUDED.is_deleted, messages.is_deleted), reactions = COALESCE(EXCLUDED.reactions, messages.reactions)';
+    } else if (/contacts/i.test(converted) && !/ON\s+CONFLICT/i.test(converted)) {
+      converted += ' ON CONFLICT (id) DO UPDATE SET name = COALESCE(EXCLUDED.name, contacts.name), phone = COALESCE(EXCLUDED.phone, contacts.phone), phone_normalized = COALESCE(EXCLUDED.phone_normalized, contacts.phone_normalized), pipeline_stage = COALESCE(EXCLUDED.pipeline_stage, contacts.pipeline_stage), updated_at = NOW()';
+    } else if (/whatsapp_sessions/i.test(converted) && !/ON\s+CONFLICT/i.test(converted)) {
+      converted += ' ON CONFLICT (id) DO UPDATE SET phone_name = EXCLUDED.phone_name, status = EXCLUDED.status, qr_code = EXCLUDED.qr_code, phone_number = COALESCE(EXCLUDED.phone_number, whatsapp_sessions.phone_number), profile_pic_url = COALESCE(EXCLUDED.profile_pic_url, whatsapp_sessions.profile_pic_url), updated_at = NOW()';
     } else if (/lid_mappings/i.test(converted) && !/ON\s+CONFLICT/i.test(converted)) {
-      converted += ' ON CONFLICT (lid) DO UPDATE SET pn = EXCLUDED.pn';
+      converted += ' ON CONFLICT (lid) DO UPDATE SET pn = EXCLUDED.pn, updated_at = NOW()';
     } else if (/webhook_logs/i.test(converted) && !/ON\s+CONFLICT/i.test(converted)) {
       converted += ' ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload';
     } else if (!/ON\s+CONFLICT/i.test(converted)) {
