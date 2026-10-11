@@ -29,18 +29,24 @@ fi
 echo "📁 Target Project Directory: $APP_DIR"
 cd "$APP_DIR"
 
-# 2. Pull latest code
-echo "📥 [1/4] Pulling latest code from GitHub..."
-git pull origin main || git pull || true
+# 2. Pull latest code with hard reset to override any VPS local file conflicts
+echo "📥 [1/5] Syncing to latest code from origin/main..."
+git fetch origin main
+git reset --hard origin/main
+echo -n "📌 Active Commit on VPS: "
+git log -n 1 --oneline
+
+# Clear stale logs so old crashes don't show up in tail
+rm -f logs/err.log logs/out.log logs/err-0.log logs/out-0.log logs/combined.log
 
 # 3. Ensure required directories exist and free port 5000
 echo "🧹 [2/5] Ensuring directories exist and port 5000 is clear..."
 mkdir -p logs media_store auth_info_baileys
 fuser -k 5000/tcp 2>/dev/null || true
 
-# 4. Direct startup test to catch any unhandled exceptions
-echo "🧪 [3/5] Testing server.js startup directly..."
-node -c server.js routes.js sessionManager.js db.js
+# 4. Direct syntax test on all backend files
+echo "🧪 [3/5] Testing syntax on all core files with node -c..."
+node -c server.js routes.js sessionManager.js db.js routes/sandboxAutomations.js
 
 pm2 delete whatsapp-crm-gateway 2>/dev/null || true
 pm2 delete server 2>/dev/null || true
