@@ -281,6 +281,9 @@ router.get('/n8n-export/:id', async (req, res) => {
     res.json({ success: true, workflow: n8nJson });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 /**
  * 11. POST /api/sandbox/automations/test-execute
  * Trigger real test execution on connected WhatsApp or test simulation
