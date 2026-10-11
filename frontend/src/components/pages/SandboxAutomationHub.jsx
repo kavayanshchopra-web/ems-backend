@@ -13,6 +13,7 @@ import {
   Sparkles,
   Bot
 } from 'lucide-react';
+import EmsTemplatesModal from '../modals/EmsTemplatesModal';
 
 export default function SandboxAutomationHub({ 
   authUser, 
@@ -23,6 +24,7 @@ export default function SandboxAutomationHub({
   const [n8nIframeKey, setN8nIframeKey] = useState(1);
   const [isIframeLoading, setIsIframeLoading] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [isPingingEngine, setIsPingingEngine] = useState(false);
   const [pingResult, setPingResult] = useState(null);
@@ -36,12 +38,20 @@ export default function SandboxAutomationHub({
     return () => clearTimeout(timer);
   }, [n8nIframeKey]);
 
-  // Direct VPS Reverse-Proxied Engine URL
-  const n8nUrl = 'https://api.employeemanagementsystems.com/automations-engine/';
+  // Dynamic Engine Canvas URL (can navigate to newly imported workflow)
+  const [currentStudioUrl, setCurrentStudioUrl] = useState('https://api.employeemanagementsystems.com/automations-engine/');
+  const n8nUrl = currentStudioUrl;
 
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleTemplateImportSuccess = (newWorkflowId, templateName) => {
+    setCurrentStudioUrl(`https://api.employeemanagementsystems.com/automations-engine/workflow/${newWorkflowId}`);
+    setN8nIframeKey(k => k + 1);
+    setIsIframeLoading(true);
+    showToast(`🎉 "${templateName}" imported & opened in Studio!`);
   };
 
   // Test Engine Connectivity
@@ -159,6 +169,40 @@ export default function SandboxAutomationHub({
 
         {/* Right: Studio Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* EMS Templates Library Modal Button */}
+          <button
+            onClick={() => setShowTemplatesModal(true)}
+            title="Browse & 1-click import 13,000+ ready-to-use workflows"
+            style={{
+              background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.25) 0%, rgba(6, 182, 212, 0.2) 100%)',
+              border: '1px solid rgba(20, 210, 203, 0.45)',
+              borderRadius: '8px',
+              padding: '7px 14px',
+              color: '#2dd4bf',
+              fontSize: '11.5px',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '7px',
+              boxShadow: '0 0 15px rgba(13, 148, 136, 0.25)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Sparkles size={13} style={{ color: '#2dd4bf' }} />
+            <span>EMS Templates</span>
+            <span style={{
+              background: 'rgba(20, 210, 203, 0.2)',
+              fontSize: '9.5px',
+              fontWeight: '800',
+              padding: '1px 6px',
+              borderRadius: '10px',
+              color: '#5eead4'
+            }}>
+              13k+
+            </span>
+          </button>
+
           {/* Reload Studio Canvas */}
           <button
             onClick={() => {
@@ -577,6 +621,13 @@ export default function SandboxAutomationHub({
           </div>
         </div>
       )}
+
+      {/* EMS Automation Templates Modal (13,200+ Workflows) */}
+      <EmsTemplatesModal
+        isOpen={showTemplatesModal}
+        onClose={() => setShowTemplatesModal(false)}
+        onImportSuccess={handleTemplateImportSuccess}
+      />
     </div>
   );
 }
