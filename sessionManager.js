@@ -798,6 +798,37 @@ export async function startSession(id, io, forceClean = false) {
         }).catch(() => {});
       }
 
+      // Real-time n8n Automations Studio Dispatcher (Non-Blocking)
+      if (!fromMe && textContent && !jid.endsWith('@g.us') && !jid.endsWith('@broadcast')) {
+        const cleanDigits = jid.replace(/\D/g, '');
+        const n8nPayload = {
+          sessionId: id,
+          contactId: jid,
+          from: jid,
+          phone: cleanDigits,
+          senderPhone: cleanDigits,
+          contactName: contactName || 'Customer',
+          message: textContent,
+          text: textContent,
+          tenantId: tenantId || 1,
+          timestamp: rawTs
+        };
+
+        // Dispatch to both production webhook and test listener (with subpath & root fallbacks)
+        [
+          'http://127.0.0.1:5678/automations-engine/webhook/wa-incoming',
+          'http://127.0.0.1:5678/automations-engine/webhook-test/wa-incoming',
+          'http://127.0.0.1:5678/webhook/wa-incoming',
+          'http://127.0.0.1:5678/webhook-test/wa-incoming'
+        ].forEach(webhookUrl => {
+          fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(n8nPayload)
+          }).catch(() => {});
+        });
+      }
+
       // Chatbot Auto-Reply Logic
       if (!fromMe && textContent && textContent.trim()) {
         try {

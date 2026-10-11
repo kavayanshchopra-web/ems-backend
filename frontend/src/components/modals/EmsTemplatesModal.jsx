@@ -20,12 +20,155 @@ import {
 
 const CATEGORIES = [
   { id: 'all', label: 'All Workflows', count: '13,200+' },
+  { id: 'ems-official', label: '⭐ EMS Test & Official', count: '1' },
   { id: 'AI', label: 'AI & LLMs', count: '9,145' },
   { id: 'Marketing', label: 'Marketing', count: '4,029' },
   { id: 'Sales', label: 'Sales & CRM', count: '1,972' },
   { id: 'Document Ops', label: 'Document Ops', count: '1,860' },
   { id: 'AI Chatbot', label: 'AI Chatbots', count: '1,426' }
 ];
+
+export const EMS_TEST_TEMPLATE = {
+  id: 'ems-test-template-01',
+  name: 'EMS WhatsApp Auto-Responder (Live Test)',
+  description: 'Official OmniFlow EMS testing template! Connects Baileys WhatsApp with n8n: listens for incoming "Hi", verifies keyword, and sends an automated WhatsApp reply with ZERO Meta charges.',
+  totalViews: 99999,
+  isOfficial: true,
+  nodes: [
+    { displayName: 'WhatsApp Inbound Trigger' },
+    { displayName: 'If Message Contains "Hi"' },
+    { displayName: 'Baileys Send Message' }
+  ],
+  workflow: {
+    name: 'EMS WhatsApp Auto-Responder (Live Test)',
+    nodes: [
+      {
+        parameters: {
+          httpMethod: 'POST',
+          path: 'wa-incoming',
+          responseMode: 'onReceived',
+          responseData: 'allEntries',
+          options: {}
+        },
+        id: 'ems-webhook-trigger',
+        name: '1. WhatsApp Incoming Trigger',
+        type: 'n8n-nodes-base.webhook',
+        typeVersion: 2,
+        position: [240, 300],
+        webhookId: 'wa-incoming'
+      },
+      {
+        parameters: {
+          conditions: {
+            options: {
+              caseSensitive: false,
+              leftValue: '',
+              typeValidation: 'loose'
+            },
+            conditions: [
+              {
+                id: 'condition-hi',
+                leftValue: '={{ ($json.body && ($json.body.message || $json.body.text)) ? ($json.body.message || $json.body.text) : "" }}',
+                rightValue: 'hi',
+                operator: {
+                  type: 'string',
+                  operation: 'contains'
+                }
+              }
+            ],
+            combinator: 'and'
+          }
+        },
+        id: 'ems-if-filter',
+        name: '2. Check If Message Contains "Hi"',
+        type: 'n8n-nodes-base.if',
+        typeVersion: 2,
+        position: [520, 300]
+      },
+      {
+        parameters: {
+          method: 'POST',
+          url: 'https://api.employeemanagementsystems.com/api/messages/send',
+          sendBody: true,
+          specifyBody: 'json',
+          jsonBody: '={\n  "phone": "{{ $(\'1. WhatsApp Incoming Trigger\').item.json.body.phone }}",\n  "message": "👋 Hello! This is an automated test reply from OmniFlow EMS Automation Studio! 🚀 (Powered by Baileys WhatsApp & n8n - Zero Meta Charges)",\n  "tenantId": 1\n}',
+          options: {}
+        },
+        id: 'ems-http-reply',
+        name: '3. Send WhatsApp Reply via Baileys',
+        type: 'n8n-nodes-base.httpRequest',
+        typeVersion: 4.2,
+        position: [820, 260]
+      },
+      {
+        parameters: {
+          content: '### 🟢 STEP 1: WhatsApp Inbound Trigger\nScanned Baileys WhatsApp number par jab customer **"Hi"** bhejega, toh OmniFlow automatically is webhook par data forward karega.',
+          height: 140,
+          width: 260,
+          color: 4
+        },
+        id: 'ems-note-step-1',
+        name: 'Sticky Note - Step 1',
+        type: 'n8n-nodes-base.stickyNote',
+        typeVersion: 1,
+        position: [200, 120]
+      },
+      {
+        parameters: {
+          content: '### 🔍 STEP 2: Filter Condition\nCheck karta hai ki incoming message me **"hi"** keyword hai ya nahi. Agar match hua toh true branch execute hogi.',
+          height: 140,
+          width: 260,
+          color: 6
+        },
+        id: 'ems-note-step-2',
+        name: 'Sticky Note - Step 2',
+        type: 'n8n-nodes-base.stickyNote',
+        typeVersion: 1,
+        position: [480, 120]
+      },
+      {
+        parameters: {
+          content: '### 🚀 STEP 3: Free WhatsApp Reply\nOmniFlow backend API (`/api/messages/send`) call karke connected Baileys WhatsApp se instant reply bhejta hai! **Zero Meta Charges!**',
+          height: 140,
+          width: 300,
+          color: 5
+        },
+        id: 'ems-note-step-3',
+        name: 'Sticky Note - Step 3',
+        type: 'n8n-nodes-base.stickyNote',
+        typeVersion: 1,
+        position: [780, 80]
+      }
+    ],
+    connections: {
+      '1. WhatsApp Incoming Trigger': {
+        main: [
+          [
+            {
+              node: '2. Check If Message Contains "Hi"',
+              type: 'main',
+              index: 0
+            }
+          ]
+        ]
+      },
+      '2. Check If Message Contains "Hi"': {
+        main: [
+          [
+            {
+              node: '3. Send WhatsApp Reply via Baileys',
+              type: 'main',
+              index: 0
+            }
+          ]
+        ]
+      }
+    },
+    settings: {
+      executionOrder: 'v1'
+    }
+  }
+};
 
 export default function EmsTemplatesModal({
   isOpen,
@@ -45,6 +188,13 @@ export default function EmsTemplatesModal({
   useEffect(() => {
     if (!isOpen) return;
 
+    if (selectedCategory === 'ems-official') {
+      setIsLoading(false);
+      setTemplates([EMS_TEST_TEMPLATE]);
+      setTotalCount(1);
+      return;
+    }
+
     let isMounted = true;
     const fetchTemplates = async () => {
       setIsLoading(true);
@@ -63,12 +213,24 @@ export default function EmsTemplatesModal({
         const data = await res.json();
         
         if (isMounted) {
-          setTemplates(data.workflows || []);
+          let list = data.workflows || [];
+          const queryLower = searchQuery.toLowerCase().trim();
+          const matchesOfficial = !queryLower || 
+            'ems test template whatsapp auto-responder hi'.includes(queryLower) ||
+            queryLower.includes('ems') || queryLower.includes('test') || 
+            queryLower.includes('what') || queryLower.includes('hi') || queryLower.includes('auto');
+
+          if (page === 1 && matchesOfficial && (selectedCategory === 'all' || selectedCategory === 'AI Chatbot' || selectedCategory === 'Marketing')) {
+            list = [EMS_TEST_TEMPLATE, ...list.filter(w => w.id !== EMS_TEST_TEMPLATE.id)];
+          }
+
+          setTemplates(list);
           if (data.totalWorkflows) setTotalCount(data.totalWorkflows);
         }
       } catch (err) {
         if (isMounted) {
-          setError(err.message || 'Failed to load templates.');
+          setTemplates([EMS_TEST_TEMPLATE]);
+          setError(err.message || 'Failed to load cloud templates.');
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -87,12 +249,17 @@ export default function EmsTemplatesModal({
     setImportingId(template.id);
     setError(null);
     try {
-      // 1. Fetch detailed workflow definition from cloud templates API
-      const detailRes = await fetch(`https://api.n8n.io/templates/workflows/${template.id}`);
-      if (!detailRes.ok) throw new Error('Failed to download template definition.');
-      const detailData = await detailRes.json();
-      
-      const wfDef = detailData.workflow?.workflow;
+      let wfDef;
+      if (template.id === 'ems-test-template-01' || template.isOfficial || template.workflow) {
+        wfDef = template.workflow;
+      } else {
+        // 1. Fetch detailed workflow definition from cloud templates API
+        const detailRes = await fetch(`https://api.n8n.io/templates/workflows/${template.id}`);
+        if (!detailRes.ok) throw new Error('Failed to download template definition.');
+        const detailData = await detailRes.json();
+        wfDef = detailData.workflow?.workflow;
+      }
+
       if (!wfDef) throw new Error('Workflow structure was empty in template.');
 
       // 2. Post workflow into our VPS n8n engine
@@ -105,7 +272,7 @@ export default function EmsTemplatesModal({
           name: template.name || 'Imported EMS Workflow',
           nodes: wfDef.nodes || [],
           connections: wfDef.connections || {},
-          settings: wfDef.settings || {}
+          settings: wfDef.settings || { executionOrder: 'v1' }
         })
       });
 
@@ -407,26 +574,49 @@ export default function EmsTemplatesModal({
                   <div
                     key={tpl.id}
                     style={{
-                      background: 'rgba(15, 23, 42, 0.75)',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      background: tpl.isOfficial 
+                        ? 'linear-gradient(145deg, rgba(13, 148, 136, 0.18) 0%, rgba(15, 23, 42, 0.95) 100%)' 
+                        : 'rgba(15, 23, 42, 0.75)',
+                      border: tpl.isOfficial 
+                        ? '1.5px solid rgba(20, 210, 203, 0.6)' 
+                        : '1px solid rgba(255, 255, 255, 0.08)',
                       borderRadius: '14px',
                       padding: '20px',
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
                       transition: 'all 0.2s ease',
-                      position: 'relative'
+                      position: 'relative',
+                      boxShadow: tpl.isOfficial ? '0 0 25px rgba(13, 148, 136, 0.2)' : 'none'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(20, 210, 203, 0.4)';
+                      e.currentTarget.style.borderColor = 'rgba(20, 210, 203, 0.8)';
                       e.currentTarget.style.transform = 'translateY(-2px)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                      e.currentTarget.style.borderColor = tpl.isOfficial ? 'rgba(20, 210, 203, 0.6)' : 'rgba(255, 255, 255, 0.08)';
                       e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
                     <div>
+                      {tpl.isOfficial && (
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'rgba(20, 210, 203, 0.18)',
+                          border: '1px solid rgba(20, 210, 203, 0.4)',
+                          borderRadius: '6px',
+                          padding: '2px 8px',
+                          marginBottom: '10px'
+                        }}>
+                          <Sparkles size={11} style={{ color: '#2dd4bf' }} />
+                          <span style={{ fontSize: '10px', fontWeight: '800', color: '#2dd4bf', letterSpacing: '0.4px' }}>
+                            EMS OFFICIAL LIVE TEST
+                          </span>
+                        </div>
+                      )}
+
                       {/* Title & Views */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', marginBottom: '8px' }}>
                         <h4 style={{
