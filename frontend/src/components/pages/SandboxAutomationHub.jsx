@@ -21,10 +21,20 @@ export default function SandboxAutomationHub({
 }) {
   const [n8nStatus, setN8nStatus] = useState('Online');
   const [n8nIframeKey, setN8nIframeKey] = useState(1);
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [isPingingEngine, setIsPingingEngine] = useState(false);
   const [pingResult, setPingResult] = useState(null);
+
+  // Auto-dismiss loader smoothly once iframe loads or after safety window
+  useEffect(() => {
+    setIsIframeLoading(true);
+    const timer = setTimeout(() => {
+      setIsIframeLoading(false);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, [n8nIframeKey]);
 
   // Direct VPS Reverse-Proxied Engine URL
   const n8nUrl = 'https://api.employeemanagementsystems.com/automations-engine/';
@@ -152,6 +162,7 @@ export default function SandboxAutomationHub({
           {/* Reload Studio Canvas */}
           <button
             onClick={() => {
+              setIsIframeLoading(true);
               setN8nIframeKey(k => k + 1);
               showToast('🔄 Studio Canvas Reloaded!');
             }}
@@ -226,11 +237,196 @@ export default function SandboxAutomationHub({
       </div>
 
       {/* Main Full-Screen Embedded Studio Canvas */}
-      <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', background: '#111827' }}>
+      <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', background: '#111827', overflow: 'hidden' }}>
+        {/* EMS Animated Logo Loader Overlay */}
+        {isIframeLoading && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: '#0d1117',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 50,
+              transition: 'opacity 0.4s ease'
+            }}
+          >
+            {/* Ambient Radial Glow */}
+            <div
+              style={{
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  width: '180px',
+                  height: '180px',
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle, rgba(13, 180, 158, 0.25) 0%, rgba(56, 189, 248, 0.08) 50%, transparent 75%)',
+                  filter: 'blur(24px)',
+                  animation: 'emsLoaderPulse 2s ease-in-out infinite'
+                }}
+              />
+
+              {/* EMS 'E' Iconic Shape Badge */}
+              <div
+                style={{
+                  position: 'relative',
+                  width: '68px',
+                  height: '68px',
+                  borderRadius: '16px',
+                  background: 'rgba(15, 23, 42, 0.9)',
+                  border: '1px solid rgba(13, 180, 158, 0.35)',
+                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px rgba(13, 180, 158, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '16px',
+                  marginBottom: '20px'
+                }}
+              >
+                {/* 3 Animated 'E' Lines */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    height: '100%'
+                  }}
+                >
+                  {/* Top Bar: 100% width */}
+                  <div
+                    style={{
+                      height: '6px',
+                      width: '100%',
+                      borderRadius: '4px',
+                      background: 'linear-gradient(90deg, #0db49e 0%, #38bdf8 100%)',
+                      boxShadow: '0 0 12px rgba(13, 180, 158, 0.6)',
+                      animation: 'emsBarAnim 1.3s ease-in-out infinite',
+                      animationDelay: '0s'
+                    }}
+                  />
+                  {/* Middle Bar: 75% width */}
+                  <div
+                    style={{
+                      height: '6px',
+                      width: '75%',
+                      borderRadius: '4px',
+                      background: 'linear-gradient(90deg, #0db49e 0%, #38bdf8 100%)',
+                      boxShadow: '0 0 12px rgba(13, 180, 158, 0.6)',
+                      animation: 'emsBarAnim 1.3s ease-in-out infinite',
+                      animationDelay: '0.18s'
+                    }}
+                  />
+                  {/* Bottom Bar: 90% width */}
+                  <div
+                    style={{
+                      height: '6px',
+                      width: '90%',
+                      borderRadius: '4px',
+                      background: 'linear-gradient(90deg, #0db49e 0%, #38bdf8 100%)',
+                      boxShadow: '0 0 12px rgba(13, 180, 158, 0.6)',
+                      animation: 'emsBarAnim 1.3s ease-in-out infinite',
+                      animationDelay: '0.36s'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Branding and Loading status */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '14.5px',
+                    fontWeight: '700',
+                    letterSpacing: '0.5px',
+                    color: '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span
+                    style={{
+                      background: 'linear-gradient(135deg, #0db49e 0%, #38bdf8 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      fontWeight: '850'
+                    }}
+                  >
+                    EMS
+                  </span>
+                  <span>Automations Studio</span>
+                </div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#94a3b8',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    animation: 'emsFadeText 1.4s ease-in-out infinite alternate'
+                  }}
+                >
+                  Connecting to Cloud Engine...
+                </div>
+              </div>
+            </div>
+
+            {/* Injected CSS keyframes for the animation */}
+            <style>{`
+              @keyframes emsBarAnim {
+                0%, 100% {
+                  opacity: 0.4;
+                  transform: scaleX(0.8);
+                  transform-origin: left;
+                }
+                50% {
+                  opacity: 1;
+                  transform: scaleX(1);
+                  transform-origin: left;
+                  box-shadow: 0 0 16px rgba(13, 180, 158, 0.9);
+                }
+              }
+              @keyframes emsLoaderPulse {
+                0%, 100% { transform: scale(0.92); opacity: 0.6; }
+                50% { transform: scale(1.15); opacity: 1; }
+              }
+              @keyframes emsFadeText {
+                0% { opacity: 0.45; }
+                100% { opacity: 1; }
+              }
+            `}</style>
+          </div>
+        )}
+
         <iframe
           key={n8nIframeKey}
           src={n8nUrl}
           title="OmniFlow Enterprise Automation Studio"
+          onLoad={() => {
+            // Dismiss loader smoothly once iframe fires onload
+            setTimeout(() => setIsIframeLoading(false), 1200);
+          }}
           style={{
             width: '100%',
             height: '100%',
