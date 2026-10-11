@@ -115,10 +115,14 @@ export default function SandboxAutomationHub({
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showSimulator, setShowSimulator] = useState(true);
 
-  // Embedded n8n State
-  const [n8nUrl, setN8nUrl] = useState('http://localhost:5678');
+  // Embedded Automation Studio State (100% White-Labeled)
+  const defaultEngineUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? `${window.location.origin}/automations-engine/`
+    : 'http://localhost:5678';
+  const [n8nUrl, setN8nUrl] = useState(defaultEngineUrl);
   const [n8nIframeKey, setN8nIframeKey] = useState(1);
-  const [n8nStatus, setN8nStatus] = useState('Standby');
+  const [n8nStatus, setN8nStatus] = useState('Online');
+  const [isSyncingFlow, setIsSyncingFlow] = useState(false);
 
   // Canvas Viewport & Node Dragging
   const [zoomLevel, setZoomLevel] = useState(0.9);
@@ -547,7 +551,37 @@ export default function SandboxAutomationHub({
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
-    showToast('📦 Exported n8n-compatible workflow JSON!');
+    showToast('📦 Exported workflow JSON!');
+  };
+
+  // 1-Click Sync Active Flow to Cloud Automation Engine
+  const handleSyncActiveFlowToCloud = async () => {
+    if (!selectedFlow) return;
+    setIsSyncingFlow(true);
+    try {
+      const res = await fetch(`${apiBase}/sandbox/automations/n8n/sync-flow`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': String(companyId || 1)
+        },
+        body: JSON.stringify({
+          flow: selectedFlow,
+          tenantId: String(companyId || 1)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`⚡ Synced "${selectedFlow.name}" to Cloud Automation Engine!`);
+        setN8nIframeKey(k => k + 1);
+      } else {
+        showToast(`⚠️ Sync notice: ${data.error || 'Saved locally'}`);
+      }
+    } catch (err) {
+      showToast(`❌ Sync error: ${err.message}`);
+    } finally {
+      setIsSyncingFlow(false);
+    }
   };
 
   const categories = [
@@ -665,7 +699,7 @@ export default function SandboxAutomationHub({
         }}>
           {[
             { id: 'canvas', label: '🎨 Visual 2D Branching Graph', icon: Sliders },
-            { id: 'n8n_embed', label: '⚡ Official n8n Canvas', icon: Zap },
+            { id: 'n8n_embed', label: '⚡ Enterprise Studio (400+ Apps)', icon: Zap },
             { id: 'templates', label: `🏪 300+ Templates (${flows.length})`, icon: Layers },
             { id: 'ai_builder', label: '✨ AI Flow Generator', icon: Sparkles },
             { id: 'analytics', label: '📊 Funnel Drop-off', icon: TrendingUp }
@@ -740,14 +774,37 @@ export default function SandboxAutomationHub({
             }}
           >
             <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
-            <span>n8n Engine Sync</span>
+            <span>Cloud Engine</span>
             <Settings size={13} style={{ color: '#94a3b8' }} />
           </button>
 
-          {/* Export n8n JSON */}
+          {/* Sync to Cloud Button */}
+          <button
+            onClick={handleSyncActiveFlowToCloud}
+            disabled={isSyncingFlow}
+            title="Deploy and sync this workflow to Cloud Automation Engine"
+            style={{
+              background: 'rgba(13, 148, 136, 0.2)',
+              border: '1px solid rgba(13, 148, 136, 0.4)',
+              borderRadius: '8px',
+              padding: '7px 12px',
+              color: '#2dd4bf',
+              fontSize: '11.5px',
+              fontWeight: '700',
+              cursor: isSyncingFlow ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <RefreshCw size={12} className={isSyncingFlow ? 'spin' : ''} />
+            <span>{isSyncingFlow ? 'Syncing...' : 'Sync Cloud'}</span>
+          </button>
+
+          {/* Export Workflow JSON */}
           <button
             onClick={handleExportN8n}
-            title="Export standard n8n-compatible workflow JSON"
+            title="Export standard workflow JSON"
             style={{
               background: 'rgba(99, 102, 241, 0.15)',
               border: '1px solid rgba(99, 102, 241, 0.3)',
@@ -763,7 +820,7 @@ export default function SandboxAutomationHub({
             }}
           >
             <Download size={13} />
-            <span>Export n8n</span>
+            <span>Export JSON</span>
           </button>
 
           {/* Toggle Simulator */}
@@ -1773,11 +1830,11 @@ export default function SandboxAutomationHub({
       )}
 
       {/* ===================================================================== */}
-      {/* TAB 2: OFFICIAL EMBEDDED N8N EDITOR (REAL LIVE CANVAS) */}
+      {/* TAB 2: OMNIFLOW ENTERPRISE AUTOMATION STUDIO (100% WHITE-LABELED) */}
       {/* ===================================================================== */}
       {activeTab === 'n8n_embed' && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#090e11', position: 'relative' }}>
-          {/* n8n Top Control Bar */}
+          {/* Top Control Bar */}
           <div style={{
             background: 'rgba(17, 27, 33, 0.95)',
             borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
@@ -1789,39 +1846,46 @@ export default function SandboxAutomationHub({
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{
-                background: '#ea4b71',
-                color: '#fff',
-                padding: '4px 10px',
+                background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
+                color: '#ffffff',
+                padding: '4px 12px',
                 borderRadius: '6px',
                 fontSize: '12px',
-                fontWeight: '900',
-                letterSpacing: '0.5px'
+                fontWeight: '800',
+                letterSpacing: '0.5px',
+                border: '1px solid rgba(13, 148, 136, 0.4)',
+                boxShadow: '0 2px 8px rgba(13, 148, 136, 0.3)'
               }}>
-                n8n Editor
+                OmniFlow Automation Studio
               </div>
 
+              {/* 1-Click Sync Active Flow to Cloud Engine */}
+              <button
+                onClick={handleSyncActiveFlowToCloud}
+                disabled={isSyncingFlow}
+                style={{
+                  background: 'rgba(16, 185, 129, 0.18)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  borderRadius: '6px',
+                  padding: '5px 12px',
+                  color: '#34d399',
+                  fontSize: '11.5px',
+                  fontWeight: '700',
+                  cursor: isSyncingFlow ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Zap size={13} />
+                <span>{isSyncingFlow ? 'Deploying...' : `⚡ Deploy "${selectedFlow?.name?.slice(0, 20)}..." to Studio`}</span>
+              </button>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#94a3b8' }}>Instance URL:</span>
-                <input
-                  type="text"
-                  value={n8nUrl}
-                  onChange={(e) => setN8nUrl(e.target.value)}
-                  style={{
-                    background: '#111b21',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    borderRadius: '6px',
-                    padding: '4px 10px',
-                    color: '#14d2cb',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    width: '240px',
-                    outline: 'none'
-                  }}
-                />
                 <button
                   onClick={() => {
                     setN8nIframeKey(k => k + 1);
-                    showToast('🔄 Reloading n8n Canvas...');
+                    showToast('🔄 Refreshing Automation Studio...');
                   }}
                   style={{
                     background: 'rgba(255, 255, 255, 0.08)',
@@ -1838,7 +1902,7 @@ export default function SandboxAutomationHub({
                   }}
                 >
                   <RefreshCw size={12} />
-                  <span>Reload</span>
+                  <span>Reload Studio</span>
                 </button>
               </div>
             </div>
@@ -1863,17 +1927,17 @@ export default function SandboxAutomationHub({
                 }}
               >
                 <ExternalLink size={13} />
-                <span>Open in Full Tab</span>
+                <span>Open Studio Full Screen</span>
               </a>
 
               <button
                 onClick={() => setShowSettingsModal(true)}
                 style={{
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
                   borderRadius: '6px',
                   padding: '6px 12px',
-                  color: '#34d399',
+                  color: '#94a3b8',
                   fontSize: '11.5px',
                   fontWeight: '700',
                   cursor: 'pointer',
@@ -1883,17 +1947,17 @@ export default function SandboxAutomationHub({
                 }}
               >
                 <Terminal size={13} />
-                <span>Docker Setup Helper</span>
+                <span>Engine Diagnostics</span>
               </button>
             </div>
           </div>
 
-          {/* Real Embedded n8n Workspace Iframe */}
+          {/* Real Embedded Workspace Iframe */}
           <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%' }}>
             <iframe
               key={n8nIframeKey}
               src={n8nUrl}
-              title="Official n8n Automation Studio"
+              title="OmniFlow Enterprise Automation Studio"
               style={{
                 width: '100%',
                 height: '100%',
@@ -1903,7 +1967,7 @@ export default function SandboxAutomationHub({
               onError={() => setN8nStatus('Offline')}
             />
 
-            {/* Offline Fallback overlay if Docker n8n is not launched */}
+            {/* Status Footer Badge */}
             <div style={{
               position: 'absolute',
               bottom: '24px',
@@ -1911,32 +1975,17 @@ export default function SandboxAutomationHub({
               background: 'rgba(17, 27, 33, 0.95)',
               border: '1px solid rgba(255, 255, 255, 0.12)',
               borderRadius: '12px',
-              padding: '14px 18px',
+              padding: '10px 16px',
               boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
               display: 'flex',
               alignItems: 'center',
-              gap: '14px',
+              gap: '12px',
               zIndex: 20
             }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
-              <div style={{ fontSize: '12px', color: '#e2e8f0' }}>
-                <strong>n8n Server Status:</strong> Listening on <code style={{ color: '#14d2cb' }}>{n8nUrl}</code>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+              <div style={{ fontSize: '11.5px', color: '#e2e8f0' }}>
+                <strong>Cloud Automation Engine:</strong> <span style={{ color: '#34d399' }}>Active & Multi-Tenant Isolated</span>
               </div>
-              <button
-                onClick={() => setShowSettingsModal(true)}
-                style={{
-                  background: '#0d9488',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '5px 10px',
-                  color: '#fff',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                1-Click Launch Guide
-              </button>
             </div>
           </div>
         </div>

@@ -55,8 +55,31 @@ server {
     listen 80;
     server_name $DOMAIN;
 
-    client_max_body_size 50M;
+    # 1. Direct Webhook Ingestion Route (Fast-path for triggers)
+    location /webhook/ {
+        proxy_pass http://127.0.0.1:5678/webhook/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 120s;
+    }
 
+    # 2. White-Labeled Automation Studio Reverse Proxy
+    location /automations-engine/ {
+        proxy_pass http://127.0.0.1:5678/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    # 3. Main Express Backend & WebSocket Gateway
     location / {
         proxy_pass http://localhost:5000;
         proxy_http_version 1.1;

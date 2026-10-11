@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: ems-n8n-engine
+    restart: unless-stopped
+    ports:
+      # Bound strictly to localhost for Nginx reverse-proxy & internal EMS security
+      - "127.0.0.1:5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://api.employeemanagementsystems.com/webhook/
+      - GENERIC_TIMEZONE=Asia/Kolkata
+      - TZ=Asia/Kolkata
+      
+      # 🛡️ Memory & Performance Optimization (Tailored for 1GB RAM + 5GB Swap)
+      - NODE_OPTIONS=--max-old-space-size=350
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=168
+      - EXECUTIONS_DATA_PRUNE_MAX_COUNT=50000
+      
+      # 🔒 White-Labeling & Privacy Locks
+      - N8N_DISABLE_PRODUCTION_MAIN_PROCESS=false
+      - N8N_METRICS=false
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_HIRING_BANNER_ENABLED=false
+      - N8N_VERSION_NOTIFICATIONS_ENABLED=false
+      - N8N_TEMPLATES_ENABLED=true
+      
+      # Security Secret
+      - N8N_ENCRYPTION_KEY=omniflow_ems_master_n8n_vault_secret_2026
+    volumes:
+      - /var/n8n_data:/home/node/.n8n
+    deploy:
+      resources:
+        limits:
+          memory: 512M
