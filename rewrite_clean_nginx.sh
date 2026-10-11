@@ -54,10 +54,12 @@ server {
         proxy_hide_header Content-Security-Policy;
         add_header Content-Security-Policy "frame-ancestors 'self' https://app.employeemanagementsystems.com https://*.employeemanagementsystems.com *" always;
 
-        # 🎨 White-Label UI Text Replacement
+        # 🎨 White-Label UI Text & Logo Replacement
         sub_filter_types text/html text/css text/javascript application/javascript;
         sub_filter '<title>n8n' '<title>OmniFlow Automation Studio';
+        sub_filter 'n8n.io' 'employeemanagementsystems.com';
         sub_filter 'n8n - Workflow Automation' 'OmniFlow Automation Studio';
+        sub_filter '</head>' '<style>header a[href*="n8n.io"], a[href="https://n8n.io"], svg[class*="logo"], div[class*="logo"] svg { display: none !important; } header::before { content: "⚡ OmniFlow Enterprise Studio"; color: #14d2cb; font-weight: 800; font-size: 14px; margin-left: 16px; }</style></head>';
         sub_filter_once off;
     }
 

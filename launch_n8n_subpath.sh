@@ -25,6 +25,8 @@ docker run -d \
   -e N8N_PATH=/automations-engine/ \
   -e N8N_EDITOR_BASE_URL=https://app.employeemanagementsystems.com/automations-engine/ \
   -e WEBHOOK_URL=https://app.employeemanagementsystems.com/automations-engine/ \
+  -e N8N_USER_MANAGEMENT_DISABLED=true \
+  -e N8N_PERSONALIZATION_ENABLED=false \
   -e N8N_DIAGNOSTICS_ENABLED=false \
   -e N8N_VERSION_NOTIFICATIONS_ENABLED=false \
   -e N8N_HIRING_BANNER_ENABLED=false \
