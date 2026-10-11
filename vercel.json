@@ -38,6 +38,18 @@
       "destination": "/api/sandbox/automations/flows"
     },
     {
+      "source": "/automations-engine/(.*)",
+      "destination": "https://api.employeemanagementsystems.com/automations-engine/$1"
+    },
+    {
+      "source": "/automations-engine",
+      "destination": "https://api.employeemanagementsystems.com/automations-engine/"
+    },
+    {
+      "source": "/webhook/(.*)",
+      "destination": "https://api.employeemanagementsystems.com/webhook/$1"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "https://api.employeemanagementsystems.com/api/$1"
     },
