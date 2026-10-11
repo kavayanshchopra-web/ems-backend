@@ -17,7 +17,7 @@ const router = express.Router();
  */
 router.get('/flows', async (req, res) => {
   try {
-    const tenantId = req.headers['x-tenant-id'] || req.query.tenantId || 'org_default';
+    const tenantId = String(req.headers['x-tenant-id'] || req.query.tenantId || '1');
     const flows = await getSandboxFlows(tenantId);
     res.json({ success: true, flows, count: flows.length });
   } catch (err) {
@@ -48,7 +48,7 @@ router.get('/flows/:id', async (req, res) => {
  */
 router.post('/flows', async (req, res) => {
   try {
-    const tenantId = req.headers['x-tenant-id'] || req.body.tenantId || 'org_default';
+    const tenantId = String(req.headers['x-tenant-id'] || req.body.tenantId || '1');
     const flowData = {
       ...req.body,
       tenant_id: tenantId

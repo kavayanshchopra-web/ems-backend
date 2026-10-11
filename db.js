@@ -3747,15 +3747,42 @@ export async function setSaaSPricingConfig(configKey, configValue) {
 // ==============================================================================
 // ⚡ SANDBOX AUTOMATION HELPER FUNCTIONS (ISOLATED)
 // ==============================================================================
-export async function getSandboxFlows(tenantId = 'org_default') {
-  const rows = await db.all(
-    `SELECT * FROM sandbox_automation_flows WHERE tenant_id = ? OR tenant_id = 'org_default' ORDER BY created_at DESC`,
-    [String(tenantId)]
+export async function getSandboxFlows(tenantId = '1') {
+  const normTenant = String(tenantId || '1');
+  let rows = await db.all(
+    `SELECT * FROM sandbox_automation_flows WHERE tenant_id = ? ORDER BY created_at DESC`,
+    [normTenant]
   );
+
+  // If Superadmin / Tenant 1 and no flows saved yet, seed official test template for Tenant 1
+  if ((normTenant === '1' || normTenant === 'org_default') && (!rows || rows.length === 0)) {
+    const defaultFlow = {
+      id: 'ems-test-flow-01',
+      tenant_id: '1',
+      name: 'EMS WhatsApp Auto-Responder (Live Test)',
+      category: 'whatsapp',
+      description: 'Official OmniFlow EMS testing template (Inbound "Hi/Hlo" keyword -> Instant Free WhatsApp reply).',
+      trigger_type: 'whatsapp_incoming',
+      trigger_config: JSON.stringify({ n8n_workflow_id: 'wa-incoming', keyword: 'hlo' }),
+      nodes_json: '[]',
+      edges_json: '[]',
+      is_active: 1
+    };
+    try {
+      await db.run(
+        `INSERT OR IGNORE INTO sandbox_automation_flows (id, tenant_id, name, category, description, trigger_type, trigger_config, nodes_json, edges_json, is_active, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        [defaultFlow.id, defaultFlow.tenant_id, defaultFlow.name, defaultFlow.category, defaultFlow.description, defaultFlow.trigger_type, defaultFlow.trigger_config, defaultFlow.nodes_json, defaultFlow.edges_json, defaultFlow.is_active]
+      );
+      rows = [defaultFlow];
+    } catch (_) {}
+  }
+
   return (rows || []).map(r => {
     try { r.nodes = JSON.parse(r.nodes_json || '[]'); } catch (e) { r.nodes = []; }
     try { r.edges = JSON.parse(r.edges_json || '[]'); } catch (e) { r.edges = []; }
     try { r.triggerConfig = JSON.parse(r.trigger_config || '{}'); } catch (e) { r.triggerConfig = {}; }
+    r.n8n_workflow_id = r.triggerConfig?.n8n_workflow_id || r.n8n_workflow_id || null;
     return r;
   });
 }
@@ -3766,17 +3793,28 @@ export async function getSandboxFlowById(id) {
   try { r.nodes = JSON.parse(r.nodes_json || '[]'); } catch (e) { r.nodes = []; }
   try { r.edges = JSON.parse(r.edges_json || '[]'); } catch (e) { r.edges = []; }
   try { r.triggerConfig = JSON.parse(r.trigger_config || '{}'); } catch (e) { r.triggerConfig = {}; }
+  r.n8n_workflow_id = r.triggerConfig?.n8n_workflow_id || r.n8n_workflow_id || null;
   return r;
 }
 
 export async function saveSandboxFlow(flow) {
   const id = flow.id || `flow_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-  const tenantId = flow.tenant_id || flow.tenantId || 'org_default';
+  const tenantId = String(flow.tenant_id || flow.tenantId || '1');
   const name = flow.name || 'Untitled Automation Flow';
   const category = flow.category || 'custom';
   const description = flow.description || '';
   const triggerType = flow.trigger_type || flow.triggerType || 'keyword';
-  const triggerConfigStr = typeof flow.trigger_config === 'object' ? JSON.stringify(flow.trigger_config) : (flow.trigger_config || '{}');
+  
+  let trigObj = {};
+  try {
+    trigObj = typeof flow.trigger_config === 'object' ? (flow.trigger_config || {}) : JSON.parse(flow.trigger_config || '{}');
+  } catch (_) {
+    trigObj = {};
+  }
+  if (flow.n8n_workflow_id) {
+    trigObj.n8n_workflow_id = flow.n8n_workflow_id;
+  }
+  const triggerConfigStr = JSON.stringify(trigObj);
   const nodesJsonStr = typeof flow.nodes === 'object' ? JSON.stringify(flow.nodes) : (flow.nodes_json || '[]');
   const edgesJsonStr = typeof flow.edges === 'object' ? JSON.stringify(flow.edges) : (flow.edges_json || '[]');
   const isActive = flow.is_active !== undefined ? (flow.is_active ? 1 : 0) : 1;
@@ -3785,6 +3823,7 @@ export async function saveSandboxFlow(flow) {
     `INSERT INTO sandbox_automation_flows (id, tenant_id, name, category, description, trigger_type, trigger_config, nodes_json, edges_json, is_active, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(id) DO UPDATE SET 
+       tenant_id = excluded.tenant_id,
        name = excluded.name,
        category = excluded.category,
        description = excluded.description,

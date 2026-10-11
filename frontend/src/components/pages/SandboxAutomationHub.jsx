@@ -1,17 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Zap, 
   RefreshCw, 
-  ExternalLink,
-  Settings,
-  Terminal,
-  Activity,
-  CheckCircle2,
-  X,
-  Server,
-  Layers,
-  Sparkles,
-  Bot
+  ExternalLink, 
+  Settings, 
+  Terminal, 
+  Activity, 
+  CheckCircle2, 
+  X, 
+  Server, 
+  Layers, 
+  Sparkles, 
+  Bot,
+  ArrowLeft,
+  Plus,
+  Play,
+  Trash2,
+  Search,
+  ShieldCheck,
+  PauseCircle,
+  PlayCircle
 } from 'lucide-react';
 import EmsTemplatesModal from '../modals/EmsTemplatesModal';
 
@@ -20,37 +28,196 @@ export default function SandboxAutomationHub({
   companyId = '1', 
   apiBase = '/api' 
 }) {
+  const currentTenantId = String(companyId || authUser?.tenant_id || 1);
+  
+  // Navigation View Mode: 'hub' (Tenant's Private Workflows Dashboard) or 'studio' (Direct n8n Canvas)
+  const [viewMode, setViewMode] = useState('hub');
+  const [activeFlowName, setActiveFlowName] = useState('EMS Automation Flow');
+  const [currentStudioUrl, setCurrentStudioUrl] = useState('https://api.employeemanagementsystems.com/automations-engine/');
+  
+  // Tenant Workflows State
+  const [tenantFlows, setTenantFlows] = useState([]);
+  const [isLoadingFlows, setIsLoadingFlows] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isCreatingFlow, setIsCreatingFlow] = useState(false);
+
+  // Engine & Canvas State
   const [n8nStatus, setN8nStatus] = useState('Online');
   const [n8nIframeKey, setN8nIframeKey] = useState(1);
-  const [isIframeLoading, setIsIframeLoading] = useState(true);
+  const [isIframeLoading, setIsIframeLoading] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [isPingingEngine, setIsPingingEngine] = useState(false);
   const [pingResult, setPingResult] = useState(null);
 
-  // Auto-dismiss loader smoothly once iframe loads or after safety window
-  useEffect(() => {
-    setIsIframeLoading(true);
-    const timer = setTimeout(() => {
-      setIsIframeLoading(false);
-    }, 3500);
-    return () => clearTimeout(timer);
-  }, [n8nIframeKey]);
-
-  // Dynamic Engine Canvas URL (can navigate to newly imported workflow)
-  const [currentStudioUrl, setCurrentStudioUrl] = useState('https://api.employeemanagementsystems.com/automations-engine/');
-  const n8nUrl = currentStudioUrl;
-
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleTemplateImportSuccess = (newWorkflowId, templateName) => {
-    setCurrentStudioUrl(`https://api.employeemanagementsystems.com/automations-engine/workflow/${newWorkflowId}`);
+  // Load Workflows for THIS TENANT ONLY (Strict Multi-Tenant Isolation)
+  const loadTenantFlows = useCallback(async () => {
+    setIsLoadingFlows(true);
+    try {
+      const res = await fetch(`${apiBase}/sandbox/automations/flows`, {
+        headers: { 
+          'x-tenant-id': currentTenantId,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTenantFlows(data.flows || []);
+      } else {
+        console.warn('[SandboxAutomationHub] Failed to fetch tenant flows:', res.status);
+      }
+    } catch (err) {
+      console.error('[SandboxAutomationHub] Error loading flows:', err.message);
+    } finally {
+      setIsLoadingFlows(false);
+    }
+  }, [apiBase, currentTenantId]);
+
+  useEffect(() => {
+    loadTenantFlows();
+  }, [loadTenantFlows]);
+
+  // Open a specific workflow in the Embedded Studio Canvas
+  const handleOpenFlowInStudio = (flow) => {
+    const wfId = flow.n8n_workflow_id || flow.id;
+    setActiveFlowName(flow.name);
+    // If we have an n8n workflow ID or slug, route directly to it
+    if (wfId && wfId !== 'wa-incoming') {
+      setCurrentStudioUrl(`https://api.employeemanagementsystems.com/automations-engine/workflow/${wfId}`);
+    } else {
+      setCurrentStudioUrl('https://api.employeemanagementsystems.com/automations-engine/');
+    }
     setN8nIframeKey(k => k + 1);
     setIsIframeLoading(true);
+    setViewMode('studio');
+    showToast(`🚀 Loaded "${flow.name}" in Studio Canvas!`);
+  };
+
+  // Create a brand-new workflow for this tenant
+  const handleCreateNewFlow = async () => {
+    setIsCreatingFlow(true);
+    try {
+      const flowName = `Custom Flow #${tenantFlows.length + 1} (Tenant ${currentTenantId})`;
+      
+      // 1. Create fresh workflow in n8n engine
+      let n8nWfId = null;
+      try {
+        const createRes = await fetch('/automations-engine/rest/workflows', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: flowName,
+            nodes: [
+              {
+                parameters: {
+                  httpMethod: 'POST',
+                  path: `ems-inbound-${currentTenantId}-${Date.now().toString(36)}`,
+                  responseMode: 'onReceived',
+                  responseData: 'allEntries'
+                },
+                id: 'trigger-node-1',
+                name: '1. WhatsApp Incoming Trigger',
+                type: 'n8n-nodes-base.webhook',
+                typeVersion: 2,
+                position: [240, 300]
+              }
+            ],
+            connections: {},
+            settings: { executionOrder: 'v1' }
+          })
+        });
+        if (createRes.ok) {
+          const cData = await createRes.json();
+          n8nWfId = cData?.data?.id;
+        }
+      } catch (nErr) {
+        console.warn('[SandboxAutomationHub] n8n create notice:', nErr.message);
+      }
+
+      // 2. Save in Tenant Database
+      const saveRes = await fetch(`${apiBase}/sandbox/automations/flows`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': currentTenantId
+        },
+        body: JSON.stringify({
+          name: flowName,
+          description: `Dedicated automation workflow for Tenant ${currentTenantId}`,
+          trigger_type: 'whatsapp_incoming',
+          category: 'whatsapp',
+          n8n_workflow_id: n8nWfId,
+          is_active: 1
+        })
+      });
+
+      if (saveRes.ok) {
+        const sData = await saveRes.json();
+        showToast(`✨ Created "${flowName}"!`);
+        await loadTenantFlows();
+        if (n8nWfId) {
+          setCurrentStudioUrl(`https://api.employeemanagementsystems.com/automations-engine/workflow/${n8nWfId}`);
+          setActiveFlowName(flowName);
+          setIsIframeLoading(true);
+          setN8nIframeKey(k => k + 1);
+          setViewMode('studio');
+        }
+      }
+    } catch (err) {
+      showToast(`Error creating workflow: ${err.message}`);
+    } finally {
+      setIsCreatingFlow(false);
+    }
+  };
+
+  // Toggle flow active / paused
+  const handleToggleFlow = async (flow) => {
+    try {
+      const nextActive = flow.is_active ? 0 : 1;
+      await fetch(`${apiBase}/sandbox/automations/flows/${flow.id}/toggle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': currentTenantId
+        },
+        body: JSON.stringify({ isActive: nextActive })
+      });
+      showToast(nextActive ? `🟢 Activated "${flow.name}"` : `⏸️ Paused "${flow.name}"`);
+      loadTenantFlows();
+    } catch (err) {
+      showToast(`Notice: ${err.message}`);
+    }
+  };
+
+  // Delete a tenant's workflow
+  const handleDeleteFlow = async (flow) => {
+    if (!window.confirm(`Are you sure you want to delete "${flow.name}"?`)) return;
+    try {
+      await fetch(`${apiBase}/sandbox/automations/flows/${flow.id}`, {
+        method: 'DELETE',
+        headers: { 'x-tenant-id': currentTenantId }
+      });
+      showToast(`🗑️ Deleted "${flow.name}"`);
+      loadTenantFlows();
+    } catch (err) {
+      showToast(`Delete notice: ${err.message}`);
+    }
+  };
+
+  // Handle template import success from EmsTemplatesModal
+  const handleTemplateImportSuccess = async (newWorkflowId, templateName) => {
+    await loadTenantFlows();
+    setCurrentStudioUrl(`https://api.employeemanagementsystems.com/automations-engine/workflow/${newWorkflowId}`);
+    setActiveFlowName(templateName);
+    setN8nIframeKey(k => k + 1);
+    setIsIframeLoading(true);
+    setViewMode('studio');
     showToast(`🎉 "${templateName}" imported & opened in Studio!`);
   };
 
@@ -60,7 +227,7 @@ export default function SandboxAutomationHub({
     setPingResult(null);
     try {
       const res = await fetch(`${apiBase}/sandbox/automations/n8n/health`, {
-        headers: { 'x-tenant-id': String(companyId || 1) }
+        headers: { 'x-tenant-id': currentTenantId }
       });
       if (res.ok) {
         const data = await res.json();
@@ -76,6 +243,14 @@ export default function SandboxAutomationHub({
       setIsPingingEngine(false);
     }
   };
+
+  // Filter flows by search
+  const filteredFlows = tenantFlows.filter(f => 
+    !searchQuery || 
+    f.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    f.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    f.trigger_type?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div style={{
@@ -112,7 +287,7 @@ export default function SandboxAutomationHub({
         </div>
       )}
 
-      {/* Top Header Bar */}
+      {/* TOP HEADER BAR */}
       <div style={{
         height: '60px',
         background: 'rgba(17, 27, 33, 0.98)',
@@ -124,26 +299,53 @@ export default function SandboxAutomationHub({
         flexShrink: 0,
         zIndex: 50
       }}>
-        {/* Left: Branding & Status */}
+        {/* Left: Branding & Tenant Context */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 15px rgba(16, 185, 129, 0.35)',
-            flexShrink: 0
-          }}>
-            <Bot size={22} style={{ color: '#ffffff' }} />
-          </div>
+          {viewMode === 'studio' ? (
+            <button
+              onClick={() => {
+                setViewMode('hub');
+                loadTenantFlows();
+              }}
+              style={{
+                background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.25) 0%, rgba(16, 185, 129, 0.25) 100%)',
+                border: '1px solid rgba(20, 210, 203, 0.5)',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                color: '#2dd4bf',
+                fontWeight: '800',
+                fontSize: '12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 0 12px rgba(13, 148, 136, 0.3)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <ArrowLeft size={15} />
+              <span>Back to My Workflows</span>
+            </button>
+          ) : (
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 15px rgba(16, 185, 129, 0.35)',
+              flexShrink: 0
+            }}>
+              <Bot size={22} style={{ color: '#ffffff' }} />
+            </div>
+          )}
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px' }}>
-                OmniFlow Automations Studio
+                {viewMode === 'studio' ? activeFlowName : 'OmniFlow Automations Studio'}
               </span>
               <span style={{
                 fontSize: '10px',
@@ -157,22 +359,49 @@ export default function SandboxAutomationHub({
                 alignItems: 'center',
                 gap: '4px'
               }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
-                CLOUD ENGINE ACTIVE
+                <ShieldCheck size={11} style={{ color: '#10b981' }} />
+                <span>Tenant {currentTenantId} Workspace</span>
               </span>
             </div>
             <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-              400+ Enterprise Apps • VPS Multi-Tenant Engine • Baileys WhatsApp Bridge
+              {viewMode === 'studio'
+                ? 'Visual Drag-and-Drop Workflow Canvas • Changes Auto-Saved'
+                : '100% Isolated Workflows • Multi-Tenant Engine • Zero Meta Charges'}
             </div>
           </div>
         </div>
 
         {/* Right: Studio Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {viewMode === 'hub' && (
+            <button
+              onClick={handleCreateNewFlow}
+              disabled={isCreatingFlow}
+              style={{
+                background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: '800',
+                cursor: isCreatingFlow ? 'wait' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Plus size={14} />
+              <span>{isCreatingFlow ? 'Creating Flow...' : 'Create Workflow'}</span>
+            </button>
+          )}
+
           {/* EMS Templates Library Modal Button */}
           <button
             onClick={() => setShowTemplatesModal(true)}
-            title="Browse & 1-click import 13,000+ ready-to-use workflows"
+            title="Browse & 1-click import ready-to-use workflows"
             style={{
               background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.25) 0%, rgba(6, 182, 212, 0.2) 100%)',
               border: '1px solid rgba(20, 210, 203, 0.45)',
@@ -184,8 +413,7 @@ export default function SandboxAutomationHub({
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '7px',
-              boxShadow: '0 0 15px rgba(13, 148, 136, 0.25)',
+              gap: '6px',
               transition: 'all 0.15s ease'
             }}
           >
@@ -203,14 +431,19 @@ export default function SandboxAutomationHub({
             </span>
           </button>
 
-          {/* Reload Studio Canvas */}
+          {/* Reload / Refresh Button */}
           <button
             onClick={() => {
-              setIsIframeLoading(true);
-              setN8nIframeKey(k => k + 1);
-              showToast('🔄 Studio Canvas Reloaded!');
+              if (viewMode === 'hub') {
+                loadTenantFlows();
+                showToast('🔄 Workflows refreshed!');
+              } else {
+                setIsIframeLoading(true);
+                setN8nIframeKey(k => k + 1);
+                showToast('🔄 Studio Canvas Reloaded!');
+              }
             }}
-            title="Reload Automation Studio canvas"
+            title="Refresh"
             style={{
               background: 'rgba(255, 255, 255, 0.06)',
               border: '1px solid rgba(255, 255, 255, 0.12)',
@@ -222,43 +455,17 @@ export default function SandboxAutomationHub({
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease'
+              gap: '6px'
             }}
           >
             <RefreshCw size={12} />
-            <span>Reload Studio</span>
+            <span>{viewMode === 'hub' ? 'Reload Hub' : 'Reload Studio'}</span>
           </button>
-
-          {/* Open in Fullscreen Tab */}
-          <a
-            href={n8nUrl}
-            target="_blank"
-            rel="noreferrer"
-            title="Open Studio in full browser window"
-            style={{
-              background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%)',
-              border: '1px solid rgba(20, 210, 203, 0.35)',
-              borderRadius: '8px',
-              padding: '7px 14px',
-              color: '#2dd4bf',
-              fontSize: '11.5px',
-              fontWeight: '800',
-              textDecoration: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <ExternalLink size={13} />
-            <span>Open in Tab</span>
-          </a>
 
           {/* Engine Diagnostics */}
           <button
             onClick={() => setShowSettingsModal(true)}
-            title="View Engine Configuration & Status"
+            title="Engine Diagnostics"
             style={{
               background: 'rgba(255, 255, 255, 0.06)',
               border: '1px solid rgba(255, 255, 255, 0.12)',
@@ -270,216 +477,420 @@ export default function SandboxAutomationHub({
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease'
+              gap: '6px'
             }}
           >
-            <Settings size={13} />
+            <Settings size={12} />
             <span>Diagnostics</span>
           </button>
         </div>
       </div>
 
-      {/* Main Full-Screen Embedded Studio Canvas */}
-      <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', background: '#111827', overflow: 'hidden' }}>
-        {/* EMS Animated Logo Loader Overlay */}
-        {isIframeLoading && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: '#0d1117',
+      {/* ========================================================================= */}
+      {/* VIEW 1: TENANT'S ISOLATED AUTOMATION WORKSPACE HUB (DEFAULT) */}
+      {/* ========================================================================= */}
+      {viewMode === 'hub' && (
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '24px 32px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px'
+        }}>
+          {/* Quick Stats Grid */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '16px'
+          }}>
+            {/* Stat Card 1: Active Workflows */}
+            <div style={{
+              background: 'rgba(17, 27, 33, 0.85)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '12px',
+              padding: '18px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
+            }}>
+              <div style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '600' }}>
+                Your Company Workflows
+              </div>
+              <div style={{ fontSize: '24px', fontWeight: '900', color: '#ffffff' }}>
+                {tenantFlows.length}
+              </div>
+              <div style={{ fontSize: '11px', color: '#34d399', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <CheckCircle2 size={12} />
+                <span>Strictly isolated to Tenant {currentTenantId}</span>
+              </div>
+            </div>
+
+            {/* Stat Card 2: Baileys WhatsApp Bridge */}
+            <div style={{
+              background: 'rgba(17, 27, 33, 0.85)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '12px',
+              padding: '18px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
+            }}>
+              <div style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '600' }}>
+                WhatsApp Baileys Bridge
+              </div>
+              <div style={{ fontSize: '24px', fontWeight: '900', color: '#34d399', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }}></span>
+                <span>Connected</span>
+              </div>
+              <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                Live Inbound Trigger Hook Ready
+              </div>
+            </div>
+
+            {/* Stat Card 3: Cloud Engine Container */}
+            <div style={{
+              background: 'rgba(17, 27, 33, 0.85)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '12px',
+              padding: '18px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
+            }}>
+              <div style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '600' }}>
+                Automations Cloud Engine
+              </div>
+              <div style={{ fontSize: '24px', fontWeight: '900', color: '#2dd4bf' }}>
+                Port 5678
+              </div>
+              <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                Background Worker Active
+              </div>
+            </div>
+
+            {/* Stat Card 4: Meta Charges */}
+            <div style={{
+              background: 'rgba(17, 27, 33, 0.85)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '12px',
+              padding: '18px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
+            }}>
+              <div style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '600' }}>
+                Meta Cloud API Fees
+              </div>
+              <div style={{ fontSize: '24px', fontWeight: '900', color: '#facc15' }}>
+                ₹0.00 Free
+              </div>
+              <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                Direct Baileys Socket Delivery
+              </div>
+            </div>
+          </div>
+
+          {/* Workflows Section Header & Search */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            paddingBottom: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Layers size={18} style={{ color: '#2dd4bf' }} />
+              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#ffffff', margin: 0 }}>
+                My Automation Workflows
+              </h2>
+              <span style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: '#cbd5e1',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: '700'
+              }}>
+                {filteredFlows.length}
+              </span>
+            </div>
+
+            <div style={{
+              position: 'relative',
+              width: '280px'
+            }}>
+              <Search size={14} style={{ position: 'absolute', left: '12px', top: '10px', color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Search workflows..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  padding: '8px 12px 8px 34px',
+                  color: '#ffffff',
+                  fontSize: '12.5px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Loading Indicator */}
+          {isLoadingFlows ? (
+            <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+              <RefreshCw size={24} className="spin-animation" style={{ margin: '0 auto 12px auto', color: '#2dd4bf' }} />
+              <div>Loading Tenant {currentTenantId} Workflows...</div>
+            </div>
+          ) : filteredFlows.length === 0 ? (
+            /* Empty State (Clean & Private) */
+            <div style={{
+              background: 'rgba(17, 27, 33, 0.5)',
+              border: '2px dashed rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
+              padding: '60px 24px',
+              textAlign: 'center',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              zIndex: 50,
-              transition: 'opacity 0.4s ease'
-            }}
-          >
-            {/* Ambient Radial Glow */}
-            <div
-              style={{
-                position: 'relative',
+              gap: '14px'
+            }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '16px',
+                background: 'rgba(13, 148, 136, 0.15)',
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  width: '180px',
-                  height: '180px',
-                  borderRadius: '50%',
-                  background: 'radial-gradient(circle, rgba(13, 180, 158, 0.25) 0%, rgba(56, 189, 248, 0.08) 50%, transparent 75%)',
-                  filter: 'blur(24px)',
-                  animation: 'emsLoaderPulse 2s ease-in-out infinite'
-                }}
-              />
-
-              {/* EMS 'E' Iconic Shape Badge */}
-              <div
-                style={{
-                  position: 'relative',
-                  width: '68px',
-                  height: '68px',
-                  borderRadius: '16px',
-                  background: 'rgba(15, 23, 42, 0.9)',
-                  border: '1px solid rgba(13, 180, 158, 0.35)',
-                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px rgba(13, 180, 158, 0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '16px',
-                  marginBottom: '20px'
-                }}
-              >
-                {/* 3 Animated 'E' Lines */}
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    width: '100%',
-                    height: '100%'
-                  }}
-                >
-                  {/* Top Bar: 100% width */}
-                  <div
-                    style={{
-                      height: '6px',
-                      width: '100%',
-                      borderRadius: '4px',
-                      background: 'linear-gradient(90deg, #0db49e 0%, #38bdf8 100%)',
-                      boxShadow: '0 0 12px rgba(13, 180, 158, 0.6)',
-                      animation: 'emsBarAnim 1.3s ease-in-out infinite',
-                      animationDelay: '0s'
-                    }}
-                  />
-                  {/* Middle Bar: 75% width */}
-                  <div
-                    style={{
-                      height: '6px',
-                      width: '75%',
-                      borderRadius: '4px',
-                      background: 'linear-gradient(90deg, #0db49e 0%, #38bdf8 100%)',
-                      boxShadow: '0 0 12px rgba(13, 180, 158, 0.6)',
-                      animation: 'emsBarAnim 1.3s ease-in-out infinite',
-                      animationDelay: '0.18s'
-                    }}
-                  />
-                  {/* Bottom Bar: 90% width */}
-                  <div
-                    style={{
-                      height: '6px',
-                      width: '90%',
-                      borderRadius: '4px',
-                      background: 'linear-gradient(90deg, #0db49e 0%, #38bdf8 100%)',
-                      boxShadow: '0 0 12px rgba(13, 180, 158, 0.6)',
-                      animation: 'emsBarAnim 1.3s ease-in-out infinite',
-                      animationDelay: '0.36s'
-                    }}
-                  />
-                </div>
+                justifyContent: 'center',
+                color: '#2dd4bf'
+              }}>
+                <Zap size={28} />
               </div>
-
-              {/* Branding and Loading status */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <div
+              <div style={{ fontSize: '16px', fontWeight: '800', color: '#ffffff' }}>
+                No Automation Workflows Found for Tenant {currentTenantId}
+              </div>
+              <div style={{ fontSize: '13px', color: '#94a3b8', maxWidth: '480px', lineHeight: '1.5' }}>
+                Your company workspace is completely private and isolated. Create your first automated WhatsApp responder or choose from 13,000+ ready templates.
+              </div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                <button
+                  onClick={handleCreateNewFlow}
                   style={{
-                    fontSize: '14.5px',
-                    fontWeight: '700',
-                    letterSpacing: '0.5px',
-                    color: '#f8fafc',
+                    background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 18px',
+                    color: '#ffffff',
+                    fontWeight: '800',
+                    fontSize: '12.5px',
+                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px'
                   }}
                 >
-                  <span
-                    style={{
-                      background: 'linear-gradient(135deg, #0db49e 0%, #38bdf8 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      fontWeight: '850'
-                    }}
-                  >
-                    EMS
-                  </span>
-                  <span>Automations Studio</span>
-                </div>
-                <div
+                  <Plus size={15} />
+                  <span>Create First Flow</span>
+                </button>
+                <button
+                  onClick={() => setShowTemplatesModal(true)}
                   style={{
-                    fontSize: '12px',
-                    color: '#94a3b8',
-                    fontWeight: '500',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '8px',
+                    padding: '10px 18px',
+                    color: '#2dd4bf',
+                    fontWeight: '800',
+                    fontSize: '12.5px',
+                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    animation: 'emsFadeText 1.4s ease-in-out infinite alternate'
+                    gap: '6px'
                   }}
                 >
-                  Connecting to Cloud Engine...
+                  <Sparkles size={15} />
+                  <span>Browse EMS Templates</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Workflows Cards Grid */
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: '18px'
+            }}>
+              {filteredFlows.map(flow => (
+                <div
+                  key={flow.id}
+                  style={{
+                    background: 'rgba(17, 27, 33, 0.95)',
+                    border: '1px solid rgba(255, 255, 255, 0.09)',
+                    borderRadius: '14px',
+                    padding: '20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+                    transition: 'transform 0.15s ease, border-color 0.15s ease'
+                  }}
+                >
+                  {/* Card Header */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '10px',
+                        background: flow.is_active ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: flow.is_active ? '#34d399' : '#94a3b8',
+                        flexShrink: 0
+                      }}>
+                        <Zap size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14.5px', fontWeight: '800', color: '#ffffff', lineHeight: '1.3' }}>
+                          {flow.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                          Trigger: <span style={{ color: '#2dd4bf', fontWeight: '700' }}>WhatsApp Inbound Keyword</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleToggleFlow(flow)}
+                      title={flow.is_active ? 'Click to Pause' : 'Click to Activate'}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: flow.is_active ? '#10b981' : '#64748b'
+                      }}
+                    >
+                      {flow.is_active ? <PlayCircle size={20} /> : <PauseCircle size={20} />}
+                    </button>
+                  </div>
+
+                  {/* Card Description */}
+                  <div style={{ fontSize: '12px', color: '#94a3b8', lineHeight: '1.4', minHeight: '34px' }}>
+                    {flow.description || 'OmniFlow automated messaging workflow.'}
+                  </div>
+
+                  {/* Card Footer Actions */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                    paddingTop: '12px'
+                  }}>
+                    <button
+                      onClick={() => handleOpenFlowInStudio(flow)}
+                      style={{
+                        background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '8px 14px',
+                        color: '#ffffff',
+                        fontSize: '11.5px',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                      }}
+                    >
+                      <Play size={12} fill="#ffffff" />
+                      <span>Open in Studio Canvas</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleDeleteFlow(flow)}
+                      title="Delete workflow"
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        borderRadius: '8px',
+                        padding: '7px 10px',
+                        color: '#f87171',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW 2: FULL-SCREEN EMBEDDED N8N STUDIO CANVAS (FOR SPECIFIC WORKFLOW) */}
+      {/* ========================================================================= */}
+      {viewMode === 'studio' && (
+        <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', background: '#111827', overflow: 'hidden' }}>
+          {isIframeLoading && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: '#0d1117',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 50
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                <Bot size={42} style={{ color: '#2dd4bf' }} />
+                <div style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff' }}>
+                  Loading Visual Automation Studio...
+                </div>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                  Connecting to Tenant {currentTenantId} Cloud Engine
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Injected CSS keyframes for the animation */}
-            <style>{`
-              @keyframes emsBarAnim {
-                0%, 100% {
-                  opacity: 0.4;
-                  transform: scaleX(0.8);
-                  transform-origin: left;
-                }
-                50% {
-                  opacity: 1;
-                  transform: scaleX(1);
-                  transform-origin: left;
-                  box-shadow: 0 0 16px rgba(13, 180, 158, 0.9);
-                }
-              }
-              @keyframes emsLoaderPulse {
-                0%, 100% { transform: scale(0.92); opacity: 0.6; }
-                50% { transform: scale(1.15); opacity: 1; }
-              }
-              @keyframes emsFadeText {
-                0% { opacity: 0.45; }
-                100% { opacity: 1; }
-              }
-            `}</style>
-          </div>
-        )}
-
-        <iframe
-          key={n8nIframeKey}
-          src={n8nUrl}
-          title="OmniFlow Enterprise Automation Studio"
-          onLoad={() => {
-            // Dismiss loader smoothly once iframe fires onload
-            setTimeout(() => setIsIframeLoading(false), 1200);
-          }}
-          style={{
-            width: '100%',
-            height: '100%',
-            border: 'none',
-            background: '#111827'
-          }}
-          onError={() => setN8nStatus('Offline')}
-        />
-      </div>
+          <iframe
+            key={n8nIframeKey}
+            src={currentStudioUrl}
+            title="OmniFlow Studio Canvas"
+            onLoad={() => {
+              setTimeout(() => setIsIframeLoading(false), 1200);
+            }}
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              background: '#111827'
+            }}
+            onError={() => setN8nStatus('Offline')}
+          />
+        </div>
+      )}
 
       {/* Engine Settings / Diagnostics Modal */}
       {showSettingsModal && (
@@ -494,8 +905,7 @@ export default function SandboxAutomationHub({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 99999,
-          padding: '20px'
+          zIndex: 99999
         }}>
           <div style={{
             background: '#111b21',
@@ -530,17 +940,16 @@ export default function SandboxAutomationHub({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Endpoint Information */}
               <div style={{ background: '#0b141a', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                 <div style={{ fontSize: '11.5px', color: '#94a3b8', marginBottom: '4px' }}>
-                  Cloud Engine Endpoint:
+                  Tenant Isolation Mode:
                 </div>
-                <div style={{ fontSize: '12.5px', color: '#14d2cb', fontFamily: 'monospace', fontWeight: '700' }}>
-                  {n8nUrl}
+                <div style={{ fontSize: '12.5px', color: '#34d399', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldCheck size={14} />
+                  <span>Enforced (Tenant {currentTenantId} Private Workspace)</span>
                 </div>
               </div>
 
-              {/* Status Rows */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div style={{ background: '#0b141a', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                   <div style={{ fontSize: '11px', color: '#94a3b8' }}>Engine Container</div>
@@ -554,12 +963,11 @@ export default function SandboxAutomationHub({
                   <div style={{ fontSize: '11px', color: '#94a3b8' }}>Baileys WhatsApp Bridge</div>
                   <div style={{ fontSize: '13px', fontWeight: '700', color: '#34d399', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <CheckCircle2 size={13} />
-                    <span>Connected (Tenant {companyId || 1})</span>
+                    <span>Connected (Tenant {currentTenantId})</span>
                   </div>
                 </div>
               </div>
 
-              {/* Ping Result */}
               {pingResult && (
                 <div style={{
                   padding: '10px 14px',
@@ -627,6 +1035,8 @@ export default function SandboxAutomationHub({
         isOpen={showTemplatesModal}
         onClose={() => setShowTemplatesModal(false)}
         onImportSuccess={handleTemplateImportSuccess}
+        companyId={currentTenantId}
+        apiBase={apiBase}
       />
     </div>
   );

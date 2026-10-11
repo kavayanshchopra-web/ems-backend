@@ -68,7 +68,7 @@ export const EMS_TEST_TEMPLATE = {
             conditions: [
               {
                 id: 'condition-hi',
-                leftValue: '={{ ($json.body && ($json.body.message || $json.body.text)) ? ($json.body.message || $json.body.text) : "" }}',
+                leftValue: '={{ $json.body?.message || $json.message || $json.body?.text || $json.text || "" }}',
                 rightValue: 'hi',
                 operator: {
                   type: 'string',
@@ -91,7 +91,7 @@ export const EMS_TEST_TEMPLATE = {
           url: 'https://api.employeemanagementsystems.com/api/messages/send',
           sendBody: true,
           specifyBody: 'json',
-          jsonBody: '={\n  "phone": "{{ $(\'1. WhatsApp Incoming Trigger\').item.json.body.phone }}",\n  "message": "👋 Hello! This is an automated test reply from OmniFlow EMS Automation Studio! 🚀 (Powered by Baileys WhatsApp & n8n - Zero Meta Charges)",\n  "tenantId": 1\n}',
+          jsonBody: '={\n  "phone": "{{ $(\'1. WhatsApp Incoming Trigger\').item.json.body?.phone || $(\'1. WhatsApp Incoming Trigger\').item.json.phone }}",\n  "message": "👋 Hello! This is an automated test reply from OmniFlow EMS Automation Studio! 🚀 (Powered by Baileys WhatsApp & n8n - Zero Meta Charges)",\n  "tenantId": 1\n}',
           options: {}
         },
         id: 'ems-http-reply',
@@ -173,7 +173,9 @@ export const EMS_TEST_TEMPLATE = {
 export default function EmsTemplatesModal({
   isOpen,
   onClose,
-  onImportSuccess
+  onImportSuccess,
+  companyId = '1',
+  apiBase = '/api'
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -286,7 +288,28 @@ export default function EmsTemplatesModal({
 
       if (!newWorkflowId) throw new Error('No workflow ID returned from engine.');
 
-      // 3. Notify parent to switch canvas
+      // 3. Save flow record in Tenant's Isolated database
+      try {
+        await fetch(`${apiBase}/sandbox/automations/flows`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-tenant-id': String(companyId || 1)
+          },
+          body: JSON.stringify({
+            name: template.name || 'Imported EMS Workflow',
+            description: template.description || 'Imported from EMS Templates Library',
+            n8n_workflow_id: newWorkflowId,
+            trigger_type: 'whatsapp_incoming',
+            category: 'whatsapp',
+            is_active: 1
+          })
+        });
+      } catch (saveErr) {
+        console.warn('[EmsTemplatesModal] Tenant flow register note:', saveErr.message);
+      }
+
+      // 4. Notify parent to switch canvas
       if (onImportSuccess) {
         onImportSuccess(newWorkflowId, template.name);
       }
