@@ -281,8 +281,72 @@ router.get('/n8n-export/:id', async (req, res) => {
     res.json({ success: true, workflow: n8nJson });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 /**
- * 11. POST /api/sandbox/automations/test-execute
+ * 11. GET /api/sandbox/automations/n8n/status
+ * Check n8n engine connection and tenant isolation mode
+ */
+router.get('/n8n/status', async (req, res) => {
+  try {
+    const { n8nBridge } = await import('../services/n8nBridge.js');
+    const status = await n8nBridge.checkConnection();
+    res.json({ success: true, ...status });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 12. POST /api/sandbox/automations/n8n/sync-flow
+ * Deploy / Sync a flow with n8n instance and register tenant webhook mapping
+ */
+router.post('/n8n/sync-flow', async (req, res) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] || req.body.tenantId || 'org_default';
+    const { flow } = req.body;
+    if (!flow) return res.status(400).json({ success: false, error: 'Flow is required' });
+
+    const { n8nBridge } = await import('../services/n8nBridge.js');
+    const result = await n8nBridge.syncFlowToN8n(flow, tenantId);
+    res.json(result);
+  } catch (err) {
+    console.error('[SandboxAutomations] n8n sync error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 13. POST /api/sandbox/automations/n8n/webhook-callback
+ * Inbound webhook callback from n8n to execute EMS CRM actions (dispatch WhatsApp, update deal, assign agent)
+ */
+router.post('/n8n/webhook-callback', async (req, res) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] || req.body.tenantId || 'org_default';
+    const { action, payload } = req.body;
+    console.log(`⚡ [N8n Webhook Callback] Tenant: ${tenantId}, Action: ${action}`);
+
+    // If action is to send WhatsApp message
+    if (action === 'send_whatsapp' && payload?.phone && payload?.text) {
+      const { sessionManager } = await import('../sessionManager.js');
+      const sessions = sessionManager?.getAllSessions?.() || [];
+      const activeSession = sessions.find(s => s.status === 'connected');
+      if (activeSession && activeSession.sock) {
+        const jid = payload.phone.includes('@') ? payload.phone : `${payload.phone.replace(/[^0-9]/g, '')}@s.whatsapp.net`;
+        await activeSession.sock.sendMessage(jid, { text: payload.text });
+      }
+    }
+
+    res.json({ success: true, message: 'Webhook callback processed successfully', action, tenantId });
+  } catch (err) {
+    console.error('[SandboxAutomations] Webhook callback error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 14. POST /api/sandbox/automations/test-execute
  * Trigger real test execution on connected WhatsApp or test simulation
  */
 router.post('/test-execute', async (req, res) => {
