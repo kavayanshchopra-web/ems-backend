@@ -1485,6 +1485,12 @@ export async function getAllSessions(tenantId = 1) {
   );
 }
 
+export async function getAllConnectedSessionsGlobal() {
+  return await db.all(
+    `SELECT * FROM whatsapp_sessions WHERE status = 'connected' ORDER BY created_at DESC`
+  );
+}
+
 export async function deleteSession(id) {
   await db.run(`DELETE FROM whatsapp_sessions WHERE id = ?`, [id]);
 }

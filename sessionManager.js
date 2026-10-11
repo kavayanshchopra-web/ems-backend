@@ -17,6 +17,7 @@ import {
   getSession, 
   deleteSession as dbDeleteSession,
   getAllSessions,
+  getAllConnectedSessionsGlobal,
   saveLidMapping,
   getPnFromLid,
   updateContactProfilePic,
@@ -106,25 +107,28 @@ function triggerDownloadMediaBackground(msg, mediaType, io, tenantId) {
 }
 
 // Map to hold active sockets
-const activeSockets = new Map();
+export const activeSockets = new Map();
 // Map to hold debounced reconnect timers to prevent tight loop flapping
 const reconnectTimers = new Map();
 
 // In-memory cache for WA Web Version to prevent 3s network stalls on reconnects
 let cachedWaWebVersion = null;
 
+// Global reference to Socket.io instance
+let globalIoInstance = null;
+
 // Global promise chain to serialize database transactions during history sync
 let dbSyncQueue = Promise.resolve();
 
-// Initialize all saved sessions from DB on startup
+// Initialize all saved sessions from DB on startup across all tenants
 export async function initAllSessions(io) {
+  if (io) globalIoInstance = io;
   try {
-    const sessions = await getAllSessions();
-    console.log(`Checking ${sessions.length} saved sessions...`);
+    const sessions = await getAllConnectedSessionsGlobal();
+    console.log(`Checking ${sessions.length} saved connected sessions across all tenants...`);
     for (const session of sessions) {
-      // ONLY auto-reconnect if it was previously connected, NOT unlinked/stale sessions
       if (session.status === 'connected') {
-        console.log(`Auto-reconnecting session: ${session.phone_name} (${session.id})`);
+        console.log(`Auto-reconnecting session for tenant ${session.tenant_id}: ${session.phone_name} (${session.id})`);
         startSession(session.id, io).catch(err => {
           console.error(`Failed to auto-start session ${session.id}:`, err);
         });
@@ -165,6 +169,9 @@ export function waitForQr(id, timeoutMs = 6000) {
 
 // Start a single WhatsApp session
 export async function startSession(id, io, forceClean = false) {
+  if (io) globalIoInstance = io;
+  const socketIo = io || globalIoInstance;
+
   // Cancel any pending reconnect timer for this session
   if (reconnectTimers.has(id)) {
     clearTimeout(reconnectTimers.get(id));
@@ -185,31 +192,55 @@ export async function startSession(id, io, forceClean = false) {
   }
 
   const session = await getSession(id);
-  const tenantId = session?.tenant_id || 1;
+  let tenantId = session?.tenant_id;
+  if (!tenantId && id.startsWith('session_')) {
+    const parts = id.split('_');
+    if (parts.length >= 2 && !isNaN(parseInt(parts[1], 10))) {
+      tenantId = parseInt(parts[1], 10);
+    }
+  }
+  tenantId = tenantId || 1;
   const tenantRoom = `tenant_${tenantId}`;
   const emitToTenant = (event, data) => {
     try {
-      io.to(tenantRoom).emit(event, data);
-      if (String(tenantId) === '1' || tenantId === 1) {
-        io.to('tenant_default').emit(event, data);
+      if (socketIo) {
+        socketIo.to(tenantRoom).emit(event, data);
+        if (String(tenantId) === '1' || tenantId === 1) {
+          socketIo.to('tenant_default').emit(event, data);
+        }
+        socketIo.emit(event, { ...data, tenantId });
       }
-      io.emit(event, { ...data, tenantId });
     } catch {
       try {
-        io.emit(event, { ...data, tenantId });
+        if (socketIo) socketIo.emit(event, { ...data, tenantId });
       } catch {}
     }
   };
 
   const sessionPath = path.join(sessionsDir, id);
 
-  // If force clean requested (e.g., from Refresh QR or Reset Line), wipe auth directory for fresh Baileys keys
-  if (forceClean && fs.existsSync(sessionPath)) {
-    console.log(`[Session ${id}] Force clean requested: wiping session directory for fresh QR code generation...`);
+  // If force clean requested OR if disconnected session has stale/unauthenticated files, wipe auth directory
+  let shouldWipeAuth = Boolean(forceClean);
+  if (!shouldWipeAuth && fs.existsSync(sessionPath) && session?.status !== 'connected') {
+    try {
+      const credsPath = path.join(sessionPath, 'creds.json');
+      if (fs.existsSync(credsPath)) {
+        const rawCreds = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
+        if (!rawCreds?.me?.id) {
+          shouldWipeAuth = true;
+        }
+      }
+    } catch (_) {
+      shouldWipeAuth = true;
+    }
+  }
+
+  if (shouldWipeAuth && fs.existsSync(sessionPath)) {
+    console.log(`[Session ${id}] Clean auth requested/needed: wiping session directory for fresh QR code generation...`);
     try {
       fs.rmSync(sessionPath, { recursive: true, force: true });
     } catch (err) {
-      console.warn(`[Session ${id}] Error wiping sessionPath on forceClean:`, err.message);
+      console.warn(`[Session ${id}] Error wiping sessionPath:`, err.message);
     }
   }
 
@@ -1061,34 +1092,60 @@ export async function destroySession(id) {
   await dbDeleteSession(id);
 }
 
+// Unified helper to locate or auto-resume the active socket with STRICT tenant isolation
+async function resolveActiveSocket(sessionId, tenantId = 1) {
+  const isSockReady = (s) => Boolean(
+    s && 
+    !s.isClosed && 
+    (s.user?.id || s.authState?.creds?.me?.id || (s.ws && s.ws.readyState === 1))
+  );
+
+  let targetId = sessionId;
+  let sock = targetId ? activeSockets.get(targetId) : null;
+
+  // 1. If active in memory and ready, use it immediately
+  if (isSockReady(sock)) {
+    return { sock, sessionId: targetId };
+  }
+
+  // 2. If target session was supposed to be connected or has auth files, auto-resume
+  if (targetId) {
+    const sessionPath = path.join(sessionsDir, targetId);
+    const dbSess = await getSession(targetId).catch(() => null);
+    if ((dbSess?.status === 'connected' || fs.existsSync(sessionPath)) && globalIoInstance) {
+      console.log(`[resolveActiveSocket] Resuming inactive session ${targetId}...`);
+      try {
+        await startSession(targetId, globalIoInstance);
+        sock = activeSockets.get(targetId);
+        if (isSockReady(sock)) {
+          return { sock, sessionId: targetId };
+        }
+      } catch (err) {
+        console.warn(`[resolveActiveSocket] Failed to auto-resume ${targetId}:`, err.message);
+      }
+    }
+  }
+
+  // 3. Same-tenant fallback: ONLY sockets strictly belonging to the SAME tenant!
+  const tid = parseInt(tenantId, 10) || 1;
+  for (const [sId, s] of activeSockets.entries()) {
+    if (isSockReady(s)) {
+      const isSameTenant = sId.startsWith(`session_${tid}_`) || (tid === 1 && sId === 'primary');
+      if (isSameTenant) {
+        console.log(`[resolveActiveSocket] Found alternative same-tenant socket ${sId} for tenant ${tid}`);
+        return { sock: s, sessionId: sId };
+      }
+    }
+  }
+
+  return { sock: null, sessionId: targetId };
+}
+
 // Send WhatsApp text message
 export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantId = 1) {
-  const isSockReady = (s) => Boolean(s && !s.isClosed && (s.user?.id || s.ws?.isOpen || s.authState?.creds?.me?.id));
+  const { sock, sessionId: activeId } = await resolveActiveSocket(sessionId, tenantId);
 
-  let sock = activeSockets.get(sessionId);
-  if (!isSockReady(sock)) {
-    // Prefer any actively connected socket with open Baileys connection
-    for (const [id, s] of activeSockets.entries()) {
-      if (isSockReady(s)) {
-        sock = s;
-        sessionId = id;
-        break;
-      }
-    }
-  }
-
-  // Secondary fallback: Any socket that has user.id (authenticated)
   if (!sock) {
-    for (const [id, s] of activeSockets.entries()) {
-      if (s && !s.isClosed && s.user?.id) {
-        sock = s;
-        sessionId = id;
-        break;
-      }
-    }
-  }
-
-  if (!sock || !isSockReady(sock)) {
     throw new Error('WhatsApp session is not connected or active. Please pair your device by scanning the QR code.');
   }
 
@@ -1110,7 +1167,7 @@ export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantI
     const timestamp = Math.floor(Date.now() / 1000);
     await saveMessage({
       id: result.key.id,
-      sessionId,
+      sessionId: activeId || sessionId,
       contactId: jid,
       fromMe: true,
       textContent: text,
@@ -1173,28 +1230,9 @@ export async function markWhatsAppMessagesAsRead(sessionId, contactJid, messageK
 
 // Send WhatsApp media message
 export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, fileBuffer, fileName, fileMimeType, caption = '', tenantId = 1) {
-  const isSockReady = (s) => Boolean(s && !s.isClosed && (s.user?.id || s.ws?.isOpen || s.authState?.creds?.me?.id));
+  const { sock, sessionId: activeId } = await resolveActiveSocket(sessionId, tenantId);
 
-  let sock = activeSockets.get(sessionId);
-  if (!isSockReady(sock)) {
-    for (const [sId, s] of activeSockets.entries()) {
-      if (isSockReady(s)) {
-        sock = s;
-        sessionId = sId;
-        break;
-      }
-    }
-  }
   if (!sock) {
-    for (const [sId, s] of activeSockets.entries()) {
-      if (s && !s.isClosed && s.user?.id) {
-        sock = s;
-        sessionId = sId;
-        break;
-      }
-    }
-  }
-  if (!sock || !isSockReady(sock)) {
     throw new Error('WhatsApp session is not active. Please scan the QR code to link your phone.');
   }
 
@@ -1272,7 +1310,7 @@ export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, file
     // Save sent message to database
     await saveMessage({
       id: response.key.id,
-      sessionId: sessionId,
+      sessionId: activeId || sessionId,
       contactId: jid,
       fromMe: 1,
       textContent: finalCaption || `[Sent ${mediaType}]`,

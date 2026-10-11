@@ -141,6 +141,7 @@ import {
   deleteMessageRecord
 } from './db.js';
 import { 
+  activeSockets,
   startSession, 
   stopSession, 
   destroySession, 
@@ -1517,6 +1518,16 @@ export default function setupRoutes(io) {
         });
         sessions = await getAllSessions(activeTenant);
       } else {
+        // Auto-heal any session marked connected in DB that has no active socket in memory
+        for (const s of sessions) {
+          const realSock = activeSockets?.get?.(s.id);
+          const isReallyAlive = Boolean(realSock && !realSock.isClosed && (realSock.user?.id || realSock.authState?.creds?.me?.id));
+          if (s.status === 'connected' && !isReallyAlive) {
+            console.log(`[Auto-heal] Session ${s.id} (Tenant ${activeTenant}) is connected in DB but inactive in runtime. Starting socket...`);
+            startSession(s.id, io).catch(err => console.warn(`[Auto-heal ${s.id}]`, err.message));
+          }
+        }
+
         // Auto-prune orphaned non-primary sessions that have no active phone number
         const primarySession = sessions.find(s => s.id === `session_${activeTenant}_primary` || s.id === 'primary');
         if (primarySession) {
@@ -1563,8 +1574,11 @@ export default function setupRoutes(io) {
       const force = req.query.force === 'true' || req.body?.force === true;
       const wipeAuth = req.query.wipeAuth === 'true' || req.body?.wipeAuth === true;
 
-      // If session is already fully connected, do NOT kill socket unless forced
-      if (!force && session && session.status === 'connected') {
+      // Check if real runtime socket is already connected and healthy
+      const realSock = activeSockets?.get?.(id);
+      const isReallyAlive = Boolean(realSock && !realSock.isClosed && (realSock.user?.id || realSock.authState?.creds?.me?.id));
+
+      if (!force && session && session.status === 'connected' && isReallyAlive) {
         return res.json({ message: 'Session is already connected', id, status: session.status, phoneNumber: session.phone_number });
       }
 
@@ -1573,16 +1587,16 @@ export default function setupRoutes(io) {
         return res.json({ message: 'QR Code already active', id, status: session.status, qr_code: session.qr_code });
       }
 
-      // Force cleanup of any stale socket and credentials so Baileys generates a fresh live QR code
-      const shouldClean = force || wipeAuth;
+      // If session is disconnected or force/wipe is requested, clean up stale socket and auth
+      const shouldClean = force || wipeAuth || !session || session.status !== 'connected';
       await stopSession(id).catch(() => {});
 
       startSession(id, io, shouldClean).catch(err => {
         console.error('Error starting session:', err);
       });
 
-      // Synchronously await QR code up to 5s so client receives QR directly in HTTP response
-      const qrDataUrl = await waitForQr(id, 5000).catch(() => null);
+      // Synchronously await QR code up to 7s so client receives QR directly in HTTP response
+      const qrDataUrl = await waitForQr(id, 7000).catch(() => null);
       const sessionAfter = await getSession(id).catch(() => null);
 
       if (qrDataUrl || sessionAfter?.qr_code) {

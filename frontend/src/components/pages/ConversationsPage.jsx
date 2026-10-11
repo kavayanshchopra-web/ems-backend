@@ -1111,19 +1111,6 @@ export default function ConversationsPage({
       }
 
       if (targetId) {
-        if (force) {
-          // Explicitly trigger server reset to wipe any stale credentials folder on VPS
-          try {
-            await fetch(`${API_URL}/sessions/reset/${encodeURIComponent(targetId)}`, {
-              method: 'POST',
-              headers: reqHeaders,
-              body: JSON.stringify({ tenantId: companyId })
-            });
-          } catch (resetErr) {
-            console.warn('[Session Hard Reset Notice]', resetErr);
-          }
-        }
-
         const url = `${API_URL}/sessions/start/${targetId}${force ? '?force=true&wipeAuth=true' : ''}`;
         let startRes = await fetch(url, {
           method: 'POST',
@@ -3879,7 +3866,7 @@ export default function ConversationsPage({
                     setShowQrModal(true);
                     const targetToStart = isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId;
                     const curr = (localSessions || []).find(s => s.id === targetToStart);
-                    if (!curr || curr.status === 'disconnected') {
+                    if (!curr || curr.status !== 'connected') {
                       handleStartSession(targetToStart);
                     }
                   }}
