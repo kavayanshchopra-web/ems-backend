@@ -38,8 +38,10 @@ echo "🧹 [2/5] Ensuring directories exist and port 5000 is clear..."
 mkdir -p logs media_store auth_info_baileys
 fuser -k 5000/tcp 2>/dev/null || true
 
-# 4. Launch with PM2
-echo "🚀 [3/5] Starting WhatsApp CRM Gateway with PM2..."
+# 4. Direct startup test to catch any unhandled exceptions
+echo "🧪 [3/5] Testing server.js startup directly..."
+node -c server.js routes.js sessionManager.js db.js
+
 pm2 delete whatsapp-crm-gateway 2>/dev/null || true
 pm2 delete server 2>/dev/null || true
 
