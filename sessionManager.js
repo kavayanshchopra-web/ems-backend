@@ -239,6 +239,31 @@ export async function startSession(id, io, forceClean = false) {
     socketOptions.version = version;
   }
 
+// Map to hold pending QR code resolvers for instant synchronous HTTP response
+const qrWaiters = new Map();
+
+export function waitForQr(id, timeoutMs = 6000) {
+  return new Promise((resolve) => {
+    // Check if session already has a ready QR in database
+    getSession(id).then(s => {
+      if (s?.qr_code && s.status === 'qr_ready') {
+        return resolve(s.qr_code);
+      }
+    }).catch(() => {});
+
+    const timer = setTimeout(() => {
+      qrWaiters.delete(id);
+      resolve(null);
+    }, timeoutMs);
+
+    qrWaiters.set(id, (qrDataUrl) => {
+      clearTimeout(timer);
+      qrWaiters.delete(id);
+      resolve(qrDataUrl);
+    });
+  });
+}
+
   const sock = makeWASocket(socketOptions);
 
   activeSockets.set(id, sock);
@@ -253,20 +278,32 @@ export async function startSession(id, io, forceClean = false) {
         const qrDataUrl = await QRCode.toDataURL(qr, { scale: 8, margin: 2 });
         await updateSessionStatus(id, 'qr_ready', qrDataUrl, null);
         emitToTenant('session_update', { id, status: 'qr_ready', qr: qrDataUrl, qr_code: qrDataUrl });
+        const waiter = qrWaiters.get(id);
+        if (waiter) {
+          waiter(qrDataUrl);
+        }
       } catch (err) {
         console.error('Error generating QR data URL:', err);
       }
     } else if (connection === 'connecting') {
       console.log(`[Session ${id}] Connecting...`);
       const cur = await getSession(id).catch(() => null);
-      await updateSessionStatus(id, 'connecting', null, cur?.phone_number || null);
-      emitToTenant('session_update', { id, status: 'connecting', phoneNumber: cur?.phone_number || null });
+      // DO NOT overwrite active QR code if already generated!
+      if (!cur?.qr_code) {
+        await updateSessionStatus(id, 'connecting', null, cur?.phone_number || null);
+        emitToTenant('session_update', { id, status: 'connecting', phoneNumber: cur?.phone_number || null });
+      }
     }
 
     if (connection === 'open') {
       const rawUser = sock.user.id;
       const phoneNumber = rawUser.split(':')[0];
       console.log(`[Session ${id}] Connected successfully as ${phoneNumber}`);
+      
+      const waiter = qrWaiters.get(id);
+      if (waiter) {
+        waiter(null);
+      }
       
       // Update session status IMMEDIATELY in 0ms so UI marks 'connected'
       await updateSessionStatus(id, 'connected', null, phoneNumber, null);

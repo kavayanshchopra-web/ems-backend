@@ -1059,11 +1059,11 @@ export default function ConversationsPage({
 
     const timer = setTimeout(() => {
       if (showQrModal && !modalQrCode && !isModalConnected && !startingSessionRef.current) {
-        console.log('[QR Watchdog] No QR code detected after 4s: triggering clean reset...');
+        console.log('[QR Watchdog] No QR code detected after 12s: triggering clean reset...');
         setQrActionMsg('Clearing stale session & generating fresh QR Code...');
         handleStartSession(null, true);
       }
-    }, 4000);
+    }, 12000);
 
     return () => clearTimeout(timer);
   }, [showQrModal, isModalConnected, modalQrCode]);

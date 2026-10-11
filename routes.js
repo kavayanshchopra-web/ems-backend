@@ -144,6 +144,7 @@ import {
   startSession, 
   stopSession, 
   destroySession, 
+  waitForQr,
   sendWhatsAppMessage, 
   sendWhatsAppMedia,
   markWhatsAppMessagesAsRead,
@@ -1579,10 +1580,47 @@ export default function setupRoutes(io) {
       startSession(id, io, shouldClean).catch(err => {
         console.error('Error starting session:', err);
       });
-      res.json({ message: 'Session start initiated', id });
+
+      // Synchronously await QR code up to 5s so client receives QR directly in HTTP response
+      const qrDataUrl = await waitForQr(id, 5000).catch(() => null);
+      const sessionAfter = await getSession(id).catch(() => null);
+
+      if (qrDataUrl || sessionAfter?.qr_code) {
+        return res.json({
+          message: 'QR Code ready',
+          id,
+          status: 'qr_ready',
+          qr_code: qrDataUrl || sessionAfter?.qr_code
+        });
+      }
+
+      if (sessionAfter?.status === 'connected') {
+        return res.json({
+          message: 'Session is connected',
+          id,
+          status: 'connected',
+          phoneNumber: sessionAfter?.phone_number
+        });
+      }
+
+      res.json({ message: 'Session start initiated', id, status: sessionAfter?.status || 'connecting' });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to initiate session start' });
+    }
+  });
+
+  // Get QR code for specific session
+  router.get(['/sessions/qr/:id', '/api/sessions/qr/:id', '/sessions/:id/qr', '/api/sessions/:id/qr'], async (req, res) => {
+    try {
+      const { id } = req.params;
+      const session = await getSession(id);
+      if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+      res.json({ id, status: session.status, qr_code: session.qr_code, phoneNumber: session.phone_number });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to retrieve session QR' });
     }
   });
 
