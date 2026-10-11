@@ -138,6 +138,31 @@ export async function initAllSessions(io) {
   }
 }
 
+// Map to hold pending QR code resolvers for instant synchronous HTTP response
+const qrWaiters = new Map();
+
+export function waitForQr(id, timeoutMs = 6000) {
+  return new Promise((resolve) => {
+    // Check if session already has a ready QR in database
+    getSession(id).then(s => {
+      if (s?.qr_code && s.status === 'qr_ready') {
+        return resolve(s.qr_code);
+      }
+    }).catch(() => {});
+
+    const timer = setTimeout(() => {
+      qrWaiters.delete(id);
+      resolve(null);
+    }, timeoutMs);
+
+    qrWaiters.set(id, (qrDataUrl) => {
+      clearTimeout(timer);
+      qrWaiters.delete(id);
+      resolve(qrDataUrl);
+    });
+  });
+}
+
 // Start a single WhatsApp session
 export async function startSession(id, io, forceClean = false) {
   // Cancel any pending reconnect timer for this session
@@ -238,31 +263,6 @@ export async function startSession(id, io, forceClean = false) {
   if (version) {
     socketOptions.version = version;
   }
-
-// Map to hold pending QR code resolvers for instant synchronous HTTP response
-const qrWaiters = new Map();
-
-export function waitForQr(id, timeoutMs = 6000) {
-  return new Promise((resolve) => {
-    // Check if session already has a ready QR in database
-    getSession(id).then(s => {
-      if (s?.qr_code && s.status === 'qr_ready') {
-        return resolve(s.qr_code);
-      }
-    }).catch(() => {});
-
-    const timer = setTimeout(() => {
-      qrWaiters.delete(id);
-      resolve(null);
-    }, timeoutMs);
-
-    qrWaiters.set(id, (qrDataUrl) => {
-      clearTimeout(timer);
-      qrWaiters.delete(id);
-      resolve(qrDataUrl);
-    });
-  });
-}
 
   const sock = makeWASocket(socketOptions);
 
