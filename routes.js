@@ -187,6 +187,10 @@ export async function authMiddleware(req, res, next) {
     req.path === '/billing/webhook' ||
     req.path.startsWith('/sandbox/automations') ||
     req.path.includes('/sandbox/automations') ||
+    req.path.startsWith('/automations-engine') ||
+    req.path.includes('/automations-engine') ||
+    req.path.startsWith('/webhook') ||
+    req.path.includes('/webhook') ||
     req.path.includes('/integrations/marketplace/') ||
     req.path.includes('/integrations/ghl/oauth/callback') ||
     req.path.includes('/integrations/ghl/webhook') ||
