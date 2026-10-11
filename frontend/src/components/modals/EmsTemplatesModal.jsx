@@ -19,12 +19,12 @@ import {
 } from 'lucide-react';
 
 const CATEGORIES = [
-  { id: 'all', label: 'All Workflows' },
-  { id: 'AI', label: 'AI & LLMs' },
-  { id: 'Marketing', label: 'Marketing' },
-  { id: 'Sales', label: 'Sales & CRM' },
-  { id: 'Document Ops', label: 'Document Ops' },
-  { id: 'Support', label: 'Customer Support' }
+  { id: 'all', label: 'All Workflows', count: '13,200+' },
+  { id: 'AI', label: 'AI & LLMs', count: '9,145' },
+  { id: 'Marketing', label: 'Marketing', count: '4,029' },
+  { id: 'Sales', label: 'Sales & CRM', count: '1,972' },
+  { id: 'Document Ops', label: 'Document Ops', count: '1,860' },
+  { id: 'AI Chatbot', label: 'AI Chatbots', count: '1,426' }
 ];
 
 export default function EmsTemplatesModal({
@@ -39,7 +39,7 @@ export default function EmsTemplatesModal({
   const [importingId, setImportingId] = useState(null);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(13205);
+  const [totalCount, setTotalCount] = useState(13206);
 
   // Fetch templates from cloud API
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function EmsTemplatesModal({
       setIsLoading(true);
       setError(null);
       try {
-        let url = `https://api.n8n.io/templates/search?page=${page}&perPage=18`;
+        let url = `https://api.n8n.io/templates/search?page=${page}&rows=24`;
         if (searchQuery.trim()) {
           url += `&query=${encodeURIComponent(searchQuery.trim())}`;
         }
@@ -64,7 +64,7 @@ export default function EmsTemplatesModal({
         
         if (isMounted) {
           setTemplates(data.workflows || []);
-          if (data.total) setTotalCount(data.total);
+          if (data.totalWorkflows) setTotalCount(data.totalWorkflows);
         }
       } catch (err) {
         if (isMounted) {
@@ -313,7 +313,18 @@ export default function EmsTemplatesModal({
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  {cat.label}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>{cat.label}</span>
+                    <span style={{
+                      fontSize: '10px',
+                      opacity: active ? 1 : 0.65,
+                      background: active ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.08)',
+                      padding: '1px 6px',
+                      borderRadius: '10px'
+                    }}>
+                      {cat.count}
+                    </span>
+                  </span>
                 </button>
               );
             })}
@@ -532,8 +543,8 @@ export default function EmsTemplatesModal({
           justifyContent: 'space-between',
           flexShrink: 0
         }}>
-          <span style={{ fontSize: '12px', color: '#64748b' }}>
-            Showing page {page} • 13,200+ workflows provided natively
+          <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+            Showing page {page} of {Math.max(1, Math.ceil(totalCount / 24))} • <strong style={{ color: '#2dd4bf' }}>{totalCount.toLocaleString()}</strong> total workflows
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -553,21 +564,21 @@ export default function EmsTemplatesModal({
             >
               Previous
             </button>
-            <span style={{ fontSize: '12px', color: '#94a3b8', padding: '0 4px' }}>
-              {page}
+            <span style={{ fontSize: '12px', color: '#2dd4bf', fontWeight: '700', padding: '0 6px' }}>
+              Page {page} of {Math.max(1, Math.ceil(totalCount / 24))}
             </span>
             <button
               onClick={() => setPage(p => p + 1)}
-              disabled={isLoading || templates.length === 0}
+              disabled={isLoading || page >= Math.ceil(totalCount / 24)}
               style={{
                 background: 'rgba(255, 255, 255, 0.06)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
                 borderRadius: '8px',
                 padding: '6px 14px',
-                color: '#cbd5e1',
+                color: page >= Math.ceil(totalCount / 24) ? '#475569' : '#cbd5e1',
                 fontSize: '12px',
                 fontWeight: '600',
-                cursor: 'pointer'
+                cursor: page >= Math.ceil(totalCount / 24) ? 'not-allowed' : 'pointer'
               }}
             >
               Next
