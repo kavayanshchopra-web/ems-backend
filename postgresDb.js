@@ -5,10 +5,13 @@ dotenv.config();
 const { Pool } = pg;
 let pool = null;
 
+export const DEFAULT_PG_URL = 'postgresql://postgres:%28Kavay%40113%29@db.pdjaajbhrvglwukoacuh.supabase.co:5432/postgres';
+
 export function getPgPool() {
-  if (!pool && process.env.DATABASE_URL) {
+  const connStr = process.env.DATABASE_URL || DEFAULT_PG_URL;
+  if (!pool && connStr) {
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: connStr,
       ssl: { rejectUnauthorized: false },
       max: 20,
       idleTimeoutMillis: 30000,
