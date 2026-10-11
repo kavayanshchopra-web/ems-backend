@@ -31,9 +31,9 @@ docker run -d \
   --restart unless-stopped \
   n8nio/n8n:latest
 
-echo "⏳ Waiting for n8n engine to be fully ready on 127.0.0.1:5678..."
+echo "⏳ Waiting for n8n engine to be fully ready on 127.0.0.1:5678/automations-engine/..."
 for i in {1..35}; do
-  if curl -s -f http://127.0.0.1:5678/healthz >/dev/null 2>&1 || curl -s -f http://127.0.0.1:5678/ >/dev/null 2>&1; then
+  if curl -s -f http://127.0.0.1:5678/automations-engine/healthz >/dev/null 2>&1 || curl -s -f http://127.0.0.1:5678/automations-engine/ >/dev/null 2>&1; then
     echo "✅ n8n engine is UP and accepting connections! (took ${i}s)"
     break
   fi
@@ -60,7 +60,7 @@ server {
 
     # 1. Direct Webhook Ingestion Routes
     location /automations-engine/webhook/ {
-        proxy_pass http://127.0.0.1:5678/webhook/;
+        proxy_pass http://127.0.0.1:5678;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -70,7 +70,7 @@ server {
     }
 
     location /webhook/ {
-        proxy_pass http://127.0.0.1:5678/webhook/;
+        proxy_pass http://127.0.0.1:5678/automations-engine/webhook/;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -81,7 +81,7 @@ server {
 
     # 2. White-Labeled Automation Studio Subpath with Auth Injected & WebSockets
     location /automations-engine/ {
-        proxy_pass http://127.0.0.1:5678/;
+        proxy_pass http://127.0.0.1:5678;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -134,12 +134,12 @@ certbot --nginx -d api.employeemanagementsystems.com --non-interactive --agree-t
 echo "=================================================================="
 echo "🔍 AUTO-VERIFYING SYSTEM HEALTH & ROUTES..."
 echo "=================================================================="
-echo -n "1. Internal n8n Engine (127.0.0.1:5678): "
-curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:5678/
-echo -n "2. Subpath Engine via Nginx (/automations-engine/): "
-curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1/automations-engine/
-echo -n "3. Auto-Login Token Injection (/automations-engine/rest/login): "
-curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1/automations-engine/rest/login
+echo -n "1. Internal n8n Engine (127.0.0.1:5678/automations-engine/): "
+curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:5678/automations-engine/
+echo -n "2. Subpath Engine via Nginx (https://api.employeemanagementsystems.com/automations-engine/): "
+curl -s -o /dev/null -w "HTTP %{http_code}\n" https://api.employeemanagementsystems.com/automations-engine/
+echo -n "3. Auto-Login Token Injected Session: "
+curl -s -o /dev/null -w "HTTP %{http_code}\n" https://api.employeemanagementsystems.com/automations-engine/rest/login
 
 echo "=================================================================="
 echo "🎉 ROUTING & AUTO-LOGIN 100% FIXED & VERIFIED!"
