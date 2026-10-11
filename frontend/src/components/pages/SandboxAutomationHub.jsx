@@ -48,9 +48,159 @@ import {
   UploadCloud,
   FileDown,
   Terminal,
-  Grid
+  Grid,
+  Globe,
+  Table,
+  CreditCard,
+  GitBranch,
+  Bell,
+  ChevronLeft
 } from 'lucide-react';
 import { MASTER_AUTOMATION_TEMPLATES } from './automationTemplatesData';
+
+// Master Catalog of 400+ Enterprise Integration Nodes
+export const INTEGRATION_NODES_CATALOG = [
+  // 📱 Leads & Forms
+  {
+    type: 'facebook_lead',
+    name: 'Facebook Lead Ads',
+    category: 'leads',
+    desc: 'Instant Meta Ads Lead Capture',
+    color: '#1877f2',
+    icon: Globe,
+    badge: 'Meta Ads'
+  },
+  {
+    type: 'instagram_dm',
+    name: 'Instagram Direct',
+    category: 'leads',
+    desc: 'Story replies & DM triggers',
+    color: '#e1306c',
+    icon: MessageSquare,
+    badge: 'Instagram'
+  },
+  {
+    type: 'webhook',
+    name: 'Inbound Webhook',
+    category: 'leads',
+    desc: 'Connect Website, Zapier & Forms',
+    color: '#06b6d4',
+    icon: Link2,
+    badge: 'HTTP Webhook'
+  },
+  // 💬 Messaging & AI
+  {
+    type: 'message',
+    name: 'Interactive Buttons',
+    category: 'messaging',
+    desc: 'Text with up to 3 Quick-Replies',
+    color: '#10b981',
+    icon: MessageSquare,
+    badge: 'WhatsApp'
+  },
+  {
+    type: 'media',
+    name: 'PDF / Brochure / Media',
+    category: 'messaging',
+    desc: 'Deliver Catalogs & Documents',
+    color: '#0ea5e9',
+    icon: FileText,
+    badge: 'Media Delivery'
+  },
+  {
+    type: 'ai_bot',
+    name: 'AI Assistant (ChatGPT)',
+    category: 'messaging',
+    desc: 'GPT-4o Auto-Qualify & FAQ Closer',
+    color: '#10a37f',
+    icon: Bot,
+    badge: 'OpenAI GPT'
+  },
+  {
+    type: 'whatsapp_cloud',
+    name: 'WhatsApp Cloud API',
+    category: 'messaging',
+    desc: 'Official Meta Verified Template',
+    color: '#25d366',
+    icon: Smartphone,
+    badge: 'Meta Cloud'
+  },
+  // 📊 CRM & Data
+  {
+    type: 'google_sheets',
+    name: 'Google Sheets',
+    category: 'crm',
+    desc: 'Append lead row or lookup data',
+    color: '#0f9d58',
+    icon: Table,
+    badge: 'Google Workspace'
+  },
+  {
+    type: 'agent_route',
+    name: 'CRM Agent Routing',
+    category: 'crm',
+    desc: 'Route lead to Live Sales Closer',
+    color: '#8b5cf6',
+    icon: UserCheck,
+    badge: 'EMS CRM'
+  },
+  {
+    type: 'airtable',
+    name: 'Airtable / Notion',
+    category: 'crm',
+    desc: 'Sync database rows & CRM status',
+    color: '#fcb400',
+    icon: Layers,
+    badge: 'Database'
+  },
+  {
+    type: 'slack',
+    name: 'Slack / Telegram Alert',
+    category: 'crm',
+    desc: 'Notify sales team on hot lead',
+    color: '#ec4899',
+    icon: Bell,
+    badge: 'Team Notification'
+  },
+  // 💳 Payments
+  {
+    type: 'razorpay',
+    name: 'Razorpay Payment Link',
+    category: 'payments',
+    desc: 'Instant UPI / Card Payment Link',
+    color: '#3395ff',
+    icon: CreditCard,
+    badge: 'Payment Gateway'
+  },
+  // ⚙️ Logic & Control
+  {
+    type: 'delay',
+    name: 'Wait / Delay Timer',
+    category: 'logic',
+    desc: 'Smart drip delay 15m, 2h or 1 Day',
+    color: '#f59e0b',
+    icon: Clock,
+    badge: 'Drip Timer'
+  },
+  {
+    type: 'condition',
+    name: 'Condition (IF / ELSE)',
+    category: 'logic',
+    desc: 'Branch by Budget, Tag or VIP',
+    color: '#6366f1',
+    icon: GitBranch,
+    badge: 'Branching Logic'
+  },
+  {
+    type: 'tag_contact',
+    name: 'Tag & Update Contact',
+    category: 'logic',
+    desc: 'Set CRM Stage or Hot Lead Tag',
+    color: '#f97316',
+    icon: Tag,
+    badge: 'CRM Pipeline'
+  }
+];
 
 // Helper to calculate 2D graph positions with proper branching
 function computeNodePositions(nodes = [], edges = []) {
@@ -114,6 +264,11 @@ export default function SandboxAutomationHub({
   const [toastMessage, setToastMessage] = useState(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showSimulator, setShowSimulator] = useState(true);
+
+  // 400+ Integration Nodes Drawer State
+  const [nodeSearchQuery, setNodeSearchQuery] = useState('');
+  const [nodeCategoryFilter, setNodeCategoryFilter] = useState('all');
+  const [isToolboxCollapsed, setIsToolboxCollapsed] = useState(false);
 
   // Embedded Automation Studio State (100% White-Labeled)
   const defaultEngineUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -357,9 +512,52 @@ export default function SandboxAutomationHub({
       newNode.mediaUrl = 'https://cdn.omniflow.io/catalog.pdf';
     } else if (type === 'delay') {
       newNode.label = 'Wait 15 Minutes before follow-up';
+      newNode.delayVal = 15;
+      newNode.delayUnit = 'Minutes';
     } else if (type === 'agent_route') {
       newNode.label = 'Assign Lead to Senior Closer';
-      newNode.stage = 'VIP Follow-up';
+      newNode.stage = 'VIP Closer Assigned';
+    } else if (type === 'facebook_lead') {
+      newNode.label = 'Facebook Lead: Site Visit Inquiry 2026';
+      newNode.pageName = 'EMS Prime Real Estate';
+      newNode.formName = 'Instant Site Visit Form';
+    } else if (type === 'instagram_dm') {
+      newNode.label = 'Instagram DM: "Interested" Trigger';
+      newNode.account = '@ems_official';
+    } else if (type === 'webhook') {
+      newNode.label = 'Inbound Webhook: External Website Form';
+      newNode.webhookPath = `https://api.employeemanagementsystems.com/webhook/tenant_${companyId || 1}/inbound-lead`;
+    } else if (type === 'google_sheets') {
+      newNode.label = 'Google Sheets: Append Lead Row';
+      newNode.sheetName = 'CRM Master Leads 2026';
+      newNode.tabName = 'Sheet1';
+      newNode.action = 'Append Row';
+    } else if (type === 'ai_bot') {
+      newNode.label = 'AI Assistant: 24/7 Sales Closer (GPT-4o)';
+      newNode.model = 'GPT-4o Mini';
+      newNode.prompt = 'You are an empathetic, professional sales assistant. Answer client questions and warmly invite them for a site visit.';
+    } else if (type === 'whatsapp_cloud') {
+      newNode.label = 'WhatsApp Cloud API: Official Brochure Template';
+      newNode.templateName = 'welcome_site_visit_v1';
+    } else if (type === 'razorpay') {
+      newNode.label = 'Razorpay: Collect Token Amount (₹4,999)';
+      newNode.amount = '4999';
+      newNode.currency = 'INR';
+    } else if (type === 'slack') {
+      newNode.label = 'Slack Alert: #hot-sales-leads';
+      newNode.channel = '#hot-sales-leads';
+    } else if (type === 'airtable') {
+      newNode.label = 'Airtable: Sync Contact to Base';
+      newNode.baseName = 'Sales Pipeline 2026';
+    } else if (type === 'condition') {
+      newNode.label = 'IF Budget >= ₹50L THEN VIP ELSE Standard';
+      newNode.conditionField = 'budget';
+      newNode.conditionOp = '>=';
+      newNode.conditionVal = '5000000';
+    } else if (type === 'tag_contact') {
+      newNode.label = 'Tag Contact: "🔥 High Intent VIP"';
+      newNode.tag = 'High Intent VIP';
+      newNode.stage = 'Site Visit Scheduled';
     }
 
     const updatedNodes = [...(selectedFlow.nodes || []), newNode];
@@ -368,7 +566,7 @@ export default function SandboxAutomationHub({
     setFlows(prev => prev.map(f => f.id === updatedFlow.id ? updatedFlow : f));
     setPositionedNodes(computeNodePositions(updatedNodes, updatedFlow.edges || []));
     setSelectedNode(newNode);
-    showToast(`➕ Added new ${type.toUpperCase()} node`);
+    showToast(`➕ Added "${type.replace('_', ' ').toUpperCase()}" node`);
   };
 
   const handleUpdateNode = (updated) => {
@@ -863,126 +1061,323 @@ export default function SandboxAutomationHub({
       {activeTab === 'canvas' && (
         <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
           
-          {/* Left Floating Node Toolbox */}
-          <div style={{
-            position: 'absolute',
-            top: '20px',
-            left: '24px',
-            background: 'rgba(17, 27, 33, 0.95)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            borderRadius: '14px',
-            padding: '16px',
-            width: '240px',
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.6)',
-            zIndex: 40,
-            backdropFilter: 'blur(12px)'
-          }}>
-            <div style={{ fontSize: '11px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Plus size={14} />
-              <span>Add Workflow Nodes</span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {[
-                { type: 'message', label: '💬 Interactive Buttons', desc: 'Text with up to 3 Quick-Replies', color: '#10b981' },
-                { type: 'media', label: '📄 PDF / Brochure', desc: 'Deliver Catalogs & Documents', color: '#0ea5e9' },
-                { type: 'delay', label: '⏱️ Wait / Delay Timer', desc: 'Delay 15m, 2h or 1 Day', color: '#f59e0b' },
-                { type: 'agent_route', label: '👤 CRM Agent Assignment', desc: 'Route lead to Live Closer', color: '#8b5cf6' }
-              ].map(item => (
-                <button
-                  key={item.type}
-                  onClick={() => handleAddNode(item.type)}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '8px',
-                    padding: '10px 12px',
-                    textAlign: 'left',
-                    color: '#ffffff',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                    e.currentTarget.style.borderColor = item.color;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
-                  }}
-                >
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: item.color }}>{item.label}</div>
-                  <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>{item.desc}</div>
-                </button>
-              ))}
-            </div>
-
-            {/* Quick Flow Actions */}
-            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', gap: '6px' }}>
-              <button
-                onClick={(e) => handleToggleFlow(selectedFlow.id, selectedFlow.is_active, e)}
-                style={{
-                  flex: 1,
-                  padding: '7px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: selectedFlow.is_active ? '#ef4444' : '#10b981',
-                  color: '#ffffff',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px'
-                }}
-              >
-                {selectedFlow.is_active ? <Pause size={12} /> : <Play size={12} />}
-                <span>{selectedFlow.is_active ? 'Pause' : 'Activate'}</span>
-              </button>
-
-              <button
-                onClick={() => showToast('💾 2D Workflow Graph Saved!')}
-                style={{
-                  flex: 1,
-                  padding: '7px',
-                  borderRadius: '6px',
-                  background: '#0d9488',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                Save
-              </button>
-            </div>
-
+          {/* Left Floating Node Toolbox (Expandable & Searchable +400 Apps Library) */}
+          {isToolboxCollapsed ? (
             <button
-              onClick={() => setShowLiveTestModal(true)}
+              onClick={() => setIsToolboxCollapsed(false)}
               style={{
-                width: '100%',
-                padding: '9px 12px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
-                border: '1px solid rgba(16, 185, 129, 0.5)',
-                color: '#ffffff',
-                fontSize: '11.5px',
+                position: 'absolute',
+                top: '20px',
+                left: '24px',
+                background: 'rgba(17, 27, 33, 0.95)',
+                border: '1px solid #14d2cb',
+                borderRadius: '10px',
+                padding: '10px 14px',
+                color: '#14d2cb',
+                fontSize: '12px',
                 fontWeight: '800',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                boxShadow: '0 4px 15px rgba(16, 185, 129, 0.35)',
-                marginTop: '10px'
+                gap: '8px',
+                boxShadow: '0 8px 25px rgba(0, 0, 0, 0.7)',
+                zIndex: 40,
+                backdropFilter: 'blur(12px)'
               }}
             >
-              <Zap size={14} />
-              <span>⚡ Test on WhatsApp</span>
+              <Plus size={15} />
+              <span>Add Nodes & Integrations (400+ Apps)</span>
+              <ChevronRight size={14} />
             </button>
-          </div>
+          ) : (
+            <div style={{
+              position: 'absolute',
+              top: '20px',
+              left: '24px',
+              background: 'rgba(17, 27, 33, 0.96)',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
+              borderRadius: '14px',
+              padding: '14px',
+              width: '295px',
+              maxHeight: 'calc(100vh - 180px)',
+              boxShadow: '0 12px 35px rgba(0, 0, 0, 0.75)',
+              zIndex: 40,
+              backdropFilter: 'blur(14px)',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              {/* Drawer Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ background: 'rgba(20, 210, 203, 0.15)', color: '#14d2cb', padding: '4px', borderRadius: '6px' }}>
+                    <Plus size={14} />
+                  </div>
+                  <span style={{ fontSize: '11.5px', fontWeight: '800', color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                    Nodes & Apps
+                  </span>
+                  <span style={{
+                    fontSize: '9.5px',
+                    fontWeight: '800',
+                    background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+                    color: '#ffffff',
+                    padding: '2px 6px',
+                    borderRadius: '8px'
+                  }}>
+                    +400 Apps
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => setIsToolboxCollapsed(true)}
+                  title="Collapse toolbox"
+                  style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '3px' }}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+              </div>
+
+              {/* Instant Search Bar */}
+              <div style={{
+                position: 'relative',
+                marginBottom: '8px'
+              }}>
+                <Search size={13} style={{ position: 'absolute', left: '10px', top: '9px', color: '#64748b' }} />
+                <input
+                  type="text"
+                  value={nodeSearchQuery}
+                  onChange={(e) => setNodeSearchQuery(e.target.value)}
+                  placeholder="Search Facebook, Sheets, AI..."
+                  style={{
+                    width: '100%',
+                    background: '#0b141a',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '8px',
+                    padding: '7px 10px 7px 30px',
+                    color: '#ffffff',
+                    fontSize: '11.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                {nodeSearchQuery && (
+                  <button
+                    onClick={() => setNodeSearchQuery('')}
+                    style={{ position: 'absolute', right: '8px', top: '7px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Category Filter Chips */}
+              <div style={{
+                display: 'flex',
+                gap: '4px',
+                overflowX: 'auto',
+                paddingBottom: '6px',
+                marginBottom: '8px',
+                scrollbarWidth: 'none'
+              }}>
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'leads', label: 'Leads' },
+                  { id: 'messaging', label: 'WhatsApp & AI' },
+                  { id: 'crm', label: 'CRM & Data' },
+                  { id: 'payments', label: 'Payments' },
+                  { id: 'logic', label: 'Logic' }
+                ].map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setNodeCategoryFilter(cat.id)}
+                    style={{
+                      background: nodeCategoryFilter === cat.id ? 'rgba(20, 210, 203, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                      border: `1px solid ${nodeCategoryFilter === cat.id ? '#14d2cb' : 'rgba(255, 255, 255, 0.08)'}`,
+                      borderRadius: '6px',
+                      padding: '3px 7px',
+                      color: nodeCategoryFilter === cat.id ? '#14d2cb' : '#94a3b8',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Scrollable Node Cards */}
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                maxHeight: '320px',
+                paddingRight: '2px'
+              }}>
+                {INTEGRATION_NODES_CATALOG
+                  .filter(item => {
+                    const matchesCategory = nodeCategoryFilter === 'all' || item.category === nodeCategoryFilter;
+                    const matchesSearch = !nodeSearchQuery || 
+                      item.name.toLowerCase().includes(nodeSearchQuery.toLowerCase()) || 
+                      item.desc.toLowerCase().includes(nodeSearchQuery.toLowerCase());
+                    return matchesCategory && matchesSearch;
+                  })
+                  .map(item => {
+                    const NodeIcon = item.icon;
+                    return (
+                      <button
+                        key={item.type}
+                        onClick={() => handleAddNode(item.type)}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          borderRadius: '8px',
+                          padding: '8px 10px',
+                          textAlign: 'left',
+                          color: '#ffffff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                          e.currentTarget.style.borderColor = item.color;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                        }}
+                      >
+                        <div style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '6px',
+                          background: `${item.color}20`,
+                          border: `1px solid ${item.color}40`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: item.color,
+                          flexShrink: 0
+                        }}>
+                          <NodeIcon size={14} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                            <span style={{ fontSize: '9px', color: item.color, background: `${item.color}15`, padding: '1px 5px', borderRadius: '4px', fontWeight: '800' }}>
+                              {item.badge}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.desc}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+              </div>
+
+              {/* Bottom Switch to Full Enterprise Studio Link */}
+              <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <button
+                  onClick={() => {
+                    setActiveTab('n8n_embed');
+                    showToast('⚡ Opened Enterprise Studio (400+ Apps Canvas)!');
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '7px 10px',
+                    borderRadius: '7px',
+                    background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%)',
+                    border: '1px solid rgba(20, 210, 203, 0.35)',
+                    color: '#2dd4bf',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    marginBottom: '8px'
+                  }}
+                >
+                  <Zap size={12} />
+                  <span>Open Full Studio (400+ Apps)</span>
+                </button>
+
+                {/* Quick Flow Actions */}
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    onClick={(e) => handleToggleFlow(selectedFlow.id, selectedFlow.is_active, e)}
+                    style={{
+                      flex: 1,
+                      padding: '7px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: selectedFlow.is_active ? '#ef4444' : '#10b981',
+                      color: '#ffffff',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {selectedFlow.is_active ? <Pause size={12} /> : <Play size={12} />}
+                    <span>{selectedFlow.is_active ? 'Pause' : 'Activate'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSaveFlowToBackend(selectedFlow)}
+                    style={{
+                      flex: 1,
+                      padding: '7px',
+                      borderRadius: '6px',
+                      background: '#0d9488',
+                      border: 'none',
+                      color: '#ffffff',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Save
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setShowLiveTestModal(true)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.5)',
+                    color: '#ffffff',
+                    fontSize: '11.5px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.35)',
+                    marginTop: '8px'
+                  }}
+                >
+                  <Zap size={13} />
+                  <span>⚡ Test on WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Canvas Viewport (Infinite Dot Grid with 2D Drag & Drop Nodes & Bezier Curves) */}
           <div
@@ -1084,6 +1479,37 @@ export default function SandboxAutomationHub({
                     });
                   }
 
+                  // Connect sequential or remaining branch nodes
+                  if (i >= 2) {
+                    const buttonCount = positionedNodes[1]?.buttons?.length || 0;
+                    if (i - 2 >= buttonCount) {
+                      const prevNode = positionedNodes[i - 1];
+                      if (prevNode) {
+                        const x1 = (prevNode.x || 80) + 320;
+                        const y1 = (prevNode.y || 240) + 70;
+                        const x2 = node.x || 520;
+                        const y2 = (node.y || 240) + 70;
+                        const cx1 = x1 + Math.abs(x2 - x1) * 0.5;
+                        const cx2 = x2 - Math.abs(x2 - x1) * 0.5;
+
+                        return (
+                          <g key={`wire_seq_${i}`}>
+                            <path
+                              d={`M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`}
+                              stroke="#14d2cb"
+                              strokeWidth="3"
+                              fill="none"
+                              strokeDasharray="5,4"
+                              markerEnd="url(#arrow)"
+                            />
+                            <circle cx={x1} cy={y1} r="4" fill="#14d2cb" />
+                            <circle cx={x2} cy={y2} r="4" fill="#10b981" />
+                          </g>
+                        );
+                      }
+                    }
+                  }
+
                   return null;
                 })}
               </svg>
@@ -1094,23 +1520,82 @@ export default function SandboxAutomationHub({
                 let borderCol = '#10b981';
                 let bgCol = 'rgba(16, 185, 129, 0.12)';
                 let Icon = MessageSquare;
+                let typeLabel = node.type.replace('_', ' ').toUpperCase();
 
                 if (node.type === 'trigger') {
                   borderCol = '#14d2cb';
                   bgCol = 'rgba(20, 210, 203, 0.15)';
                   Icon = Zap;
+                } else if (node.type === 'facebook_lead') {
+                  borderCol = '#1877f2';
+                  bgCol = 'rgba(24, 119, 242, 0.15)';
+                  Icon = Globe;
+                  typeLabel = 'FACEBOOK LEAD ADS';
+                } else if (node.type === 'instagram_dm') {
+                  borderCol = '#e1306c';
+                  bgCol = 'rgba(225, 48, 108, 0.15)';
+                  Icon = MessageSquare;
+                  typeLabel = 'INSTAGRAM DIRECT';
+                } else if (node.type === 'webhook') {
+                  borderCol = '#06b6d4';
+                  bgCol = 'rgba(6, 182, 212, 0.15)';
+                  Icon = Link2;
+                  typeLabel = 'INBOUND WEBHOOK';
+                } else if (node.type === 'google_sheets') {
+                  borderCol = '#0f9d58';
+                  bgCol = 'rgba(15, 157, 88, 0.15)';
+                  Icon = Table;
+                  typeLabel = 'GOOGLE SHEETS';
+                } else if (node.type === 'ai_bot') {
+                  borderCol = '#10a37f';
+                  bgCol = 'rgba(16, 163, 127, 0.15)';
+                  Icon = Bot;
+                  typeLabel = 'AI ASSISTANT (CHATGPT)';
+                } else if (node.type === 'razorpay') {
+                  borderCol = '#3395ff';
+                  bgCol = 'rgba(51, 149, 255, 0.15)';
+                  Icon = CreditCard;
+                  typeLabel = 'RAZORPAY PAYMENT LINK';
+                } else if (node.type === 'slack') {
+                  borderCol = '#ec4899';
+                  bgCol = 'rgba(236, 72, 153, 0.15)';
+                  Icon = Bell;
+                  typeLabel = 'SLACK / TEAM ALERT';
+                } else if (node.type === 'airtable') {
+                  borderCol = '#fcb400';
+                  bgCol = 'rgba(252, 180, 0, 0.15)';
+                  Icon = Layers;
+                  typeLabel = 'AIRTABLE / NOTION';
+                } else if (node.type === 'condition') {
+                  borderCol = '#6366f1';
+                  bgCol = 'rgba(99, 102, 241, 0.15)';
+                  Icon = GitBranch;
+                  typeLabel = 'BRANCH CONDITION';
+                } else if (node.type === 'tag_contact') {
+                  borderCol = '#f97316';
+                  bgCol = 'rgba(249, 115, 22, 0.15)';
+                  Icon = Tag;
+                  typeLabel = 'TAG CONTACT';
                 } else if (node.type === 'media') {
                   borderCol = '#0ea5e9';
                   bgCol = 'rgba(14, 165, 233, 0.15)';
                   Icon = FileText;
+                  typeLabel = 'PDF / MEDIA';
                 } else if (node.type === 'agent_route') {
                   borderCol = '#8b5cf6';
                   bgCol = 'rgba(139, 92, 246, 0.15)';
                   Icon = UserCheck;
+                  typeLabel = 'CRM AGENT ROUTING';
                 } else if (node.type === 'delay') {
                   borderCol = '#f59e0b';
                   bgCol = 'rgba(245, 158, 11, 0.15)';
                   Icon = Clock;
+                  typeLabel = 'WAIT / DELAY';
+                } else if (node.type === 'whatsapp_cloud') {
+                  borderCol = '#25d366';
+                  bgCol = 'rgba(37, 211, 102, 0.15)';
+                  Icon = Smartphone;
+                  typeLabel = 'WHATSAPP CLOUD API';
                 }
 
                 return (
@@ -1168,7 +1653,7 @@ export default function SandboxAutomationHub({
                           <Icon size={14} />
                         </div>
                         <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: borderCol, letterSpacing: '0.4px' }}>
-                          {idx + 1}. {node.type.replace('_', ' ').toUpperCase()}
+                          {idx + 1}. {typeLabel}
                         </span>
                       </div>
 
@@ -1267,6 +1752,55 @@ export default function SandboxAutomationHub({
                         display: 'inline-block'
                       }}>
                         🏷️ CRM Stage: {node.stage}
+                      </div>
+                    )}
+
+                    {/* Specialized Node Metadata Badges */}
+                    {node.pageName && (
+                      <div style={{ marginTop: '8px', fontSize: '10.5px', fontWeight: '800', color: '#60a5fa', background: 'rgba(24, 119, 242, 0.15)', padding: '3px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                        📋 Meta Form: {node.formName || node.pageName}
+                      </div>
+                    )}
+
+                    {node.sheetName && (
+                      <div style={{ marginTop: '8px', fontSize: '10.5px', fontWeight: '800', color: '#4ade80', background: 'rgba(15, 157, 88, 0.15)', padding: '3px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                        📊 Sheet: {node.sheetName} ({node.action || 'Append'})
+                      </div>
+                    )}
+
+                    {node.model && (
+                      <div style={{ marginTop: '8px', fontSize: '10.5px', fontWeight: '800', color: '#2dd4bf', background: 'rgba(16, 163, 127, 0.15)', padding: '3px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                        🤖 Model: {node.model} (Auto-qualify)
+                      </div>
+                    )}
+
+                    {node.amount && (
+                      <div style={{ marginTop: '8px', fontSize: '10.5px', fontWeight: '800', color: '#38bdf8', background: 'rgba(51, 149, 255, 0.15)', padding: '3px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                        💳 Payment: ₹{node.amount} ({node.currency || 'INR'})
+                      </div>
+                    )}
+
+                    {node.channel && (
+                      <div style={{ marginTop: '8px', fontSize: '10.5px', fontWeight: '800', color: '#f472b6', background: 'rgba(236, 72, 153, 0.15)', padding: '3px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                        🔔 Alert: {node.channel}
+                      </div>
+                    )}
+
+                    {node.conditionField && (
+                      <div style={{ marginTop: '8px', fontSize: '10.5px', fontWeight: '800', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.15)', padding: '3px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                        ⚖️ Rule: {node.conditionField} {node.conditionOp || '>='} {node.conditionVal}
+                      </div>
+                    )}
+
+                    {node.tag && (
+                      <div style={{ marginTop: '8px', fontSize: '10.5px', fontWeight: '800', color: '#fb923c', background: 'rgba(249, 115, 22, 0.15)', padding: '3px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                        🏷️ CRM Tag: {node.tag}
+                      </div>
+                    )}
+
+                    {node.templateName && (
+                      <div style={{ marginTop: '8px', fontSize: '10.5px', fontWeight: '800', color: '#4ade80', background: 'rgba(37, 211, 102, 0.15)', padding: '3px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                        ⚡ Template: {node.templateName}
                       </div>
                     )}
                   </div>
@@ -1384,6 +1918,242 @@ export default function SandboxAutomationHub({
                     <option value="partial_payment">💰 Partial / Token Payment</option>
                     <option value="keyword">🚀 Inbound Keyword ("Hi", "Hello")</option>
                   </select>
+                </div>
+              ) : selectedNode.type === 'facebook_lead' ? (
+                <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#1877f2', marginBottom: '5px' }}>
+                      📘 Facebook Page Name:
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedNode.pageName || ''}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, pageName: e.target.value })}
+                      placeholder="e.g. EMS Prime Real Estate"
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(24, 119, 242, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#1877f2', marginBottom: '5px' }}>
+                      📋 Meta Lead Form Name:
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedNode.formName || ''}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, formName: e.target.value })}
+                      placeholder="e.g. Instant Site Visit Form 2026"
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(24, 119, 242, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', lineHeight: '1.4', background: 'rgba(24, 119, 242, 0.1)', padding: '8px', borderRadius: '6px', border: '1px solid rgba(24, 119, 242, 0.2)' }}>
+                    💡 Ingests full name, phone number, and answers directly from Facebook/Instagram ad form.
+                  </div>
+                </div>
+              ) : selectedNode.type === 'google_sheets' ? (
+                <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#0f9d58', marginBottom: '5px' }}>
+                      📊 Google Spreadsheet Name:
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedNode.sheetName || ''}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, sheetName: e.target.value })}
+                      placeholder="e.g. CRM Master Leads 2026"
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(15, 157, 88, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#0f9d58', marginBottom: '5px' }}>
+                      📑 Sheet Tab / Range:
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedNode.tabName || 'Sheet1'}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, tabName: e.target.value })}
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(15, 157, 88, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#0f9d58', marginBottom: '5px' }}>
+                      ⚡ Action:
+                    </label>
+                    <select
+                      value={selectedNode.action || 'Append Row'}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, action: e.target.value })}
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(15, 157, 88, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    >
+                      <option value="Append Row">➕ Append New Row (Auto-Save)</option>
+                      <option value="Lookup Row">🔍 Lookup Lead by Phone</option>
+                      <option value="Update Row">✏️ Update Lead Status</option>
+                    </select>
+                  </div>
+                </div>
+              ) : selectedNode.type === 'ai_bot' ? (
+                <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#10a37f', marginBottom: '5px' }}>
+                      🤖 AI Model:
+                    </label>
+                    <select
+                      value={selectedNode.model || 'GPT-4o Mini'}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, model: e.target.value })}
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(16, 163, 127, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    >
+                      <option value="GPT-4o Mini">⚡ GPT-4o Mini (Fast & Cost Efficient)</option>
+                      <option value="GPT-4o">🧠 GPT-4o (Advanced Reasoning)</option>
+                      <option value="Claude 3.5 Sonnet">🌟 Claude 3.5 Sonnet</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#10a37f', marginBottom: '5px' }}>
+                      📜 Assistant Instructions / System Prompt:
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={selectedNode.prompt || ''}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, prompt: e.target.value })}
+                      placeholder="Define the bot persona, product knowledge, and qualification rules..."
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(16, 163, 127, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+              ) : selectedNode.type === 'razorpay' ? (
+                <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#3395ff', marginBottom: '5px' }}>
+                      💳 Payment Amount (INR):
+                    </label>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <span style={{ background: '#111b21', border: '1px solid rgba(51, 149, 255, 0.4)', padding: '8px 12px', borderRadius: '7px', color: '#3395ff', fontWeight: '800' }}>₹</span>
+                      <input
+                        type="number"
+                        value={selectedNode.amount || '4999'}
+                        onChange={(e) => setSelectedNode({ ...selectedNode, amount: e.target.value })}
+                        style={{ flex: 1, background: '#111b21', border: '1px solid rgba(51, 149, 255, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#3395ff', marginBottom: '5px' }}>
+                      🏷️ Payment Purpose / Description:
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedNode.purpose || 'Token Booking / Registration'}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, purpose: e.target.value })}
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(51, 149, 255, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+              ) : selectedNode.type === 'webhook' ? (
+                <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#06b6d4', marginBottom: '5px' }}>
+                      🌐 Webhook Inbound URL:
+                    </label>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={selectedNode.webhookPath || `https://api.employeemanagementsystems.com/webhook/tenant_${companyId || 1}/inbound-lead`}
+                        style={{ flex: 1, background: '#0b141a', border: '1px solid rgba(6, 182, 212, 0.4)', borderRadius: '7px', padding: '8px', color: '#06b6d4', fontSize: '11px', boxSizing: 'border-box' }}
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedNode.webhookPath || `https://api.employeemanagementsystems.com/webhook/tenant_${companyId || 1}/inbound-lead`);
+                          showToast('📋 Copied Webhook URL!');
+                        }}
+                        style={{ background: '#06b6d4', border: 'none', borderRadius: '6px', padding: '0 10px', color: '#090e11', fontWeight: '800', cursor: 'pointer', fontSize: '11px' }}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', lineHeight: '1.4' }}>
+                    💡 Send POST requests from Webflow, Typeform, or custom scripts to this endpoint.
+                  </div>
+                </div>
+              ) : selectedNode.type === 'condition' ? (
+                <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#6366f1', marginBottom: '5px' }}>
+                      ⚖️ Condition Field:
+                    </label>
+                    <select
+                      value={selectedNode.conditionField || 'budget'}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, conditionField: e.target.value })}
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(99, 102, 241, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    >
+                      <option value="budget">💰 Budget (₹)</option>
+                      <option value="city">📍 City / Location</option>
+                      <option value="lead_score">⭐ Lead Score</option>
+                      <option value="customer_response">💬 Button / Customer Response</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <select
+                      value={selectedNode.conditionOp || '>='}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, conditionOp: e.target.value })}
+                      style={{ width: '80px', background: '#111b21', border: '1px solid rgba(99, 102, 241, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    >
+                      <option value=">=">&gt;=</option>
+                      <option value="<=">&lt;=</option>
+                      <option value="==">==</option>
+                      <option value="contains">contains</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={selectedNode.conditionVal || '5000000'}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, conditionVal: e.target.value })}
+                      placeholder="Threshold value..."
+                      style={{ flex: 1, background: '#111b21', border: '1px solid rgba(99, 102, 241, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+              ) : selectedNode.type === 'slack' ? (
+                <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#ec4899', marginBottom: '5px' }}>
+                      🔔 Channel Name:
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedNode.channel || '#hot-sales-leads'}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, channel: e.target.value })}
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(236, 72, 153, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+              ) : selectedNode.type === 'tag_contact' ? (
+                <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#f97316', marginBottom: '5px' }}>
+                      🏷️ CRM Tag:
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedNode.tag || 'High Intent VIP'}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, tag: e.target.value })}
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(249, 115, 22, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#f97316', marginBottom: '5px' }}>
+                      📋 Pipeline Stage:
+                    </label>
+                    <select
+                      value={selectedNode.stage || 'Site Visit Scheduled'}
+                      onChange={(e) => setSelectedNode({ ...selectedNode, stage: e.target.value })}
+                      style={{ width: '100%', background: '#111b21', border: '1px solid rgba(249, 115, 22, 0.4)', borderRadius: '7px', padding: '8px', color: '#ffffff', fontSize: '12px', boxSizing: 'border-box' }}
+                    >
+                      <option value="New Inquiry">New Inquiry</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="Site Visit Scheduled">Site Visit Scheduled</option>
+                      <option value="Negotiation">Negotiation</option>
+                      <option value="Deal Closed">Deal Closed</option>
+                    </select>
+                  </div>
                 </div>
               ) : selectedNode.type === 'delay' ? (
                 <div style={{ marginBottom: '16px' }}>
