@@ -122,6 +122,13 @@ class N8nWorkflowBridge {
 
       if (node.type === 'trigger') {
         return; // Already represented by entry webhook
+      } else if (node.type === 'facebook_lead' || node.type === 'meta_lead') {
+        n8nNodeType = 'n8n-nodes-base.facebookLeadAds';
+        parameters = {
+          event: 'leadgen',
+          pageId: node.pageName || 'auto',
+          formId: node.formName || 'auto'
+        };
       } else if (node.type === 'message' || node.type === 'interactive_buttons') {
         n8nNodeType = 'n8n-nodes-base.httpRequest';
         parameters = {
@@ -140,8 +147,28 @@ class N8nWorkflowBridge {
         n8nNodeType = 'n8n-nodes-base.googleSheets';
         parameters = {
           operation: 'append',
-          sheetId: node.data?.sheetId || 'auto',
+          sheetId: node.sheetName || node.data?.sheetId || 'auto',
           range: 'A:Z'
+        };
+      } else if (node.type === 'razorpay') {
+        n8nNodeType = 'n8n-nodes-base.razorpay';
+        parameters = {
+          resource: 'paymentLink',
+          operation: 'create',
+          amount: node.amount || '4999',
+          currency: 'INR'
+        };
+      } else if (node.type === 'ai_bot' || node.type === 'openai') {
+        n8nNodeType = '@n8n/n8n-nodes-langchain.openAi';
+        parameters = {
+          model: node.model || 'gpt-4o-mini',
+          prompt: node.prompt || 'Auto-qualify inbound lead'
+        };
+      } else if (node.type === 'slack') {
+        n8nNodeType = 'n8n-nodes-base.slack';
+        parameters = {
+          channel: node.channel || '#sales-leads',
+          text: node.label || 'New CRM Lead Alert'
         };
       } else if (node.type === 'email' || node.type === 'gmail') {
         n8nNodeType = 'n8n-nodes-base.gmail';
