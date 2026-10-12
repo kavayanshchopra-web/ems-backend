@@ -73,6 +73,7 @@ const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'));
 const LiveWhatsAppWebPage = lazy(() => import('./pages/LiveWhatsAppWebPage'));
 const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
 const SandboxAutomationHub = lazy(() => import('./pages/SandboxAutomationHub'));
+const SandboxErpHub = lazy(() => import('./pages/SandboxErpHub'));
 import ModuleGateScreen from './ModuleGateScreen';
 import MobileAppLauncher from './mobile/MobileAppLauncher';
 import StorageUpgradeModal from './storage/StorageUpgradeModal';
@@ -602,6 +603,7 @@ function SidebarMainNavItem({ id, label, icon: IconComponent, isActive, onClick,
     kanban: { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.18)' },
     wa_live_web: { color: '#22c55e', bg: 'rgba(34, 197, 94, 0.18)' },
     automations_sandbox: { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.18)' },
+    erp_hub: { color: '#0d9488', bg: 'rgba(13, 148, 136, 0.18)' },
     tasks: { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.18)' },
     gps_attendance: { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.18)' },
     audit_logs: { color: '#ec4899', bg: 'rgba(236, 72, 153, 0.18)' },
@@ -8910,6 +8912,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {activeTab === 'automations_sandbox' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#8b5cf6', fontWeight: 'bold' }}>Loading Smart Automations Hub (Sandbox)...</div>}>
             <SandboxAutomationHub
+              authUser={effectiveAuthUser || authUser}
+              companyId={effectiveAuthUser?.companyId || authUser?.companyId || 'org_default'}
+              apiBase={typeof window !== 'undefined' && window.location.port === '5173' ? 'http://localhost:5000/api' : '/api'}
+            />
+          </Suspense>
+        )}
+        {/* Sandbox Odoo 19 ERP & Operations Hub */}
+        {activeTab === 'erp_hub' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>Loading OmniFlow ERP Hub (Sandbox)...</div>}>
+            <SandboxErpHub
               authUser={effectiveAuthUser || authUser}
               companyId={effectiveAuthUser?.companyId || authUser?.companyId || 'org_default'}
               apiBase={typeof window !== 'undefined' && window.location.port === '5173' ? 'http://localhost:5000/api' : '/api'}

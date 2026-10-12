@@ -20,7 +20,8 @@ import {
   Settings,
   Search,
   X,
-  Wallet
+  Wallet,
+  Package
 } from 'lucide-react';
 
 export default function AppLauncherScreen({
@@ -154,6 +155,20 @@ export default function AppLauncherScreen({
         badge: 'SANDBOX',
         visible: typeof canNav === 'function' ? canNav('automations_sandbox') : true,
         desc: 'Event triggers, webhooks & automated multi-step actions'
+      },
+      {
+        id: 'erp_hub',
+        tab: 'erp_hub',
+        label: 'ERP & OPERATIONS',
+        subLabel: 'Sales, Stock & MRP',
+        category: 'ERP & Operations',
+        icon: Package,
+        color: '#0d9488',
+        accentBg: 'rgba(13, 148, 136, 0.12)',
+        borderColor: 'rgba(13, 148, 136, 0.35)',
+        badge: 'SANDBOX',
+        visible: true,
+        desc: 'Sales orders, inventory tracking, manufacturing BOM & invoicing'
       },
       {
         id: 'tasks',
