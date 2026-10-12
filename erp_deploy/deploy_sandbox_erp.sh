@@ -1,9 +1,9 @@
 #!/bin/bash
 # ==============================================================================
 # OmniFlow EMS - 1-Click Automated Sandbox ERP Deployment Script
-# Optimized for: 1 GB Physical RAM + 5 GB SSD Virtual Swap Memory
+# Database Engine: Supabase Cloud PostgreSQL (ap-south-1) - Zero Local DB Overhead!
 # Target Domain: sandbox-erp.employeemanagementsystems.com
-# Stack: Odoo 19.0 (Frozen Cut-off) + PostgreSQL 16
+# Stack: Odoo 19.0 (Frozen Cut-off)
 # ==============================================================================
 
 set -e
@@ -14,64 +14,40 @@ DOMAIN="sandbox-erp.employeemanagementsystems.com"
 echo "=============================================================================="
 echo "🚀 STARTING OMNIFLOW SANDBOX ERP ENGINE DEPLOYMENT"
 echo "🌐 Domain: $DOMAIN"
-echo "📦 Engine: Odoo 19 Community (Cut-Off & Locked Core)"
-echo "💾 Memory Profile: Ultra-Low Footprint (< 900MB Combined Budget)"
+echo "☁️ Database: Supabase Cloud PostgreSQL (ap-south-1)"
+echo "💾 Local DB Footprint: 0 MB (Zero local Postgres container needed!)"
 echo "=============================================================================="
 
-# 1. Verify / Configure 4GB+ Virtual Swap Memory
-echo "💾 [1/6] Checking Virtual Swap Memory..."
-SWAP_TOTAL=$(free -m | awk '/Swap:/ {print $2}')
-if [ "$SWAP_TOTAL" -lt 3000 ]; then
-    echo "⚠️ Swap is less than 3GB (Current: ${SWAP_TOTAL}MB). Expanding Swap..."
-    swapoff -a || true
-    fallocate -l 4G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=4096
-    chmod 600 /swapfile
-    mkswap /swapfile
-    swapon /swapfile
-    grep -qxF '/swapfile none swap sw 0 0' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
-    sysctl vm.swappiness=20
-    echo "✅ Swap Memory configured to 4 GB with swappiness=20."
-else
-    echo "✅ Sufficient Swap Memory detected: ${SWAP_TOTAL} MB."
-fi
+# 1. Clean any old unused/half-downloaded docker layers to maximize SSD space
+echo "🧹 [1/5] Freeing disk space..."
+docker system prune -f 2>/dev/null || true
 
-# 2. Ensure Docker & Docker Compose are installed
-echo "🐳 [2/6] Verifying Docker installation..."
-if ! command -v docker &> /dev/null; then
-    echo "Installing Docker..."
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sh get-docker.sh
-    systemctl enable --now docker
-    rm -f get-docker.sh
-fi
-
-# 3. Directory structure setup
-echo "📁 [3/6] Setting up ERP persistent storage directories..."
+# 2. Directory structure setup
+echo "📁 [2/5] Setting up ERP persistent storage directories..."
 mkdir -p "$ERP_DIR"
-mkdir -p "$ERP_DIR/storage/postgres_data"
 mkdir -p "$ERP_DIR/storage/filestore"
 mkdir -p "$ERP_DIR/storage/logs"
 chmod -R 777 "$ERP_DIR/storage"
 
-# 4. Copy configuration & compose files
-echo "📦 [4/6] Copying ERP configurations..."
+# 3. Copy configuration & compose files
+echo "📦 [3/5] Copying ERP configurations..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cp "$SCRIPT_DIR/docker-compose.sandbox.yml" "$ERP_DIR/docker-compose.yml"
 cp -r "$SCRIPT_DIR/config" "$ERP_DIR/" 2>/dev/null || true
-cp -r "$SCRIPT_DIR/custom_addons" "$ERP_DIR/" 2>/dev/null || true
 
-# 5. Start Docker Containers
-echo "🚀 [5/6] Launching Odoo 19 + PostgreSQL 16 containers..."
+# 4. Stop any old local postgres container and start Odoo container
+echo "🚀 [4/5] Launching Odoo 19 container connected to Supabase..."
 cd "$ERP_DIR"
+docker rm -f omniflow_sandbox_erp_db 2>/dev/null || true
 docker compose down 2>/dev/null || true
 docker compose up -d
 
 # Wait 8 seconds and verify container health
 sleep 8
-docker ps | grep -E "omniflow_sandbox_erp" || docker ps
+docker ps | grep -E "omniflow_sandbox_erp_app" || docker ps
 
-# 6. Nginx Reverse Proxy & SSL Configuration
-echo "🔒 [6/6] Configuring Nginx Reverse Proxy for $DOMAIN..."
+# 5. Nginx Reverse Proxy & SSL Configuration
+echo "🔒 [5/5] Configuring Nginx Reverse Proxy for $DOMAIN..."
 cat << 'EOF' > /etc/nginx/sites-available/sandbox-erp.conf
 server {
     listen 80;
@@ -81,7 +57,6 @@ server {
     proxy_connect_timeout 720s;
     proxy_send_timeout 720s;
 
-    # Headers for Odoo Web Client Proxy Mode
     proxy_set_header X-Forwarded-Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
@@ -114,6 +89,6 @@ if command -v certbot &> /dev/null; then
 fi
 
 echo "=============================================================================="
-echo "🎉 SUCCESS: OMNIFLOW SANDBOX ERP ENGINE IS LIVE!"
+echo "🎉 SUCCESS: OMNIFLOW SANDBOX ERP ENGINE IS LIVE (CONNECTED TO SUPABASE)!"
 echo "🌐 URL: https://$DOMAIN"
 echo "=============================================================================="

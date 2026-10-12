@@ -1,55 +1,14 @@
-version: '3.8'
-
 # ==============================================================================
-# OmniFlow EMS — Dedicated Sandbox ERP Engine (Odoo 19 + PostgreSQL 16)
-# Memory Profile: Ultra-Low Footprint (Tuned for 1GB RAM + 5GB Swap VPS)
+# OmniFlow EMS — Dedicated Sandbox ERP Engine (Odoo 19)
+# Database: Supabase Cloud PostgreSQL (ap-south-1) - Zero Local DB Overhead!
 # Domain Target: sandbox-erp.employeemanagementsystems.com
 # ==============================================================================
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: omniflow_sandbox_erp_db
-    restart: unless-stopped
-    command: >
-      postgres
-      -c shared_buffers=128MB
-      -c max_connections=25
-      -c work_mem=4MB
-      -c maintenance_work_mem=32MB
-      -c effective_cache_size=256MB
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-    environment:
-      POSTGRES_DB: omniflow_sandbox_erp
-      POSTGRES_USER: odoo
-      POSTGRES_PASSWORD: odoo_sandbox_secure_pass
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - ./storage/postgres_data:/var/lib/postgresql/data/pgdata
-    ports:
-      - "127.0.0.1:5434:5432"
-    networks:
-      - omniflow_erp_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U odoo -d omniflow_sandbox_erp"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   odoo:
     image: odoo:19.0
     container_name: omniflow_sandbox_erp_app
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 650M
-    depends_on:
-      postgres:
-        condition: service_healthy
     ports:
       - "127.0.0.1:8069:8069"
       - "127.0.0.1:8072:8072"
@@ -57,13 +16,3 @@ services:
       - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
       - ./storage/filestore:/var/lib/odoo
       - ./storage/logs:/var/log/odoo
-    environment:
-      - HOST=postgres
-      - USER=odoo
-      - PASSWORD=odoo_sandbox_secure_pass
-    networks:
-      - omniflow_erp_net
-
-networks:
-  omniflow_erp_net:
-    driver: bridge
