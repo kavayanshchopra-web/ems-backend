@@ -8,7 +8,7 @@ set -e
 
 ERP_DIR="/var/www/omniflow-erp"
 echo "=============================================================================="
-echo "🚀 ACTIVATING PUBLIC IP ACCESS FOR ODOO 19"
+echo "🚀 STARTING ODOO 19 (INTERNAL ULTRA-LIGHT DB BRIDGE)"
 echo "🌐 URL: http://66.29.135.156:8069"
 echo "=============================================================================="
 
@@ -17,9 +17,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cp "$SCRIPT_DIR/docker-compose.sandbox.yml" "$ERP_DIR/docker-compose.yml"
 cp -r "$SCRIPT_DIR/config" "$ERP_DIR/" 2>/dev/null || true
 
-# 2. Re-launch Odoo Container on 0.0.0.0:8069
+# 2. Re-launch Odoo + Postgres Containers on 0.0.0.0:8069
 cd "$ERP_DIR"
-docker compose up -d --force-recreate
+docker compose down 2>/dev/null || true
+docker compose up -d
 
 # 3. Open port 8069 in Firewall
 if command -v ufw &> /dev/null; then
@@ -27,6 +28,11 @@ if command -v ufw &> /dev/null; then
     ufw allow 8069/tcp || true
 fi
 iptables -I INPUT -p tcp --dport 8069 -j ACCEPT 2>/dev/null || true
+
+# 4. Verify containers running
+echo "⏳ Waiting 5 seconds for Odoo to initialize..."
+sleep 5
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "omniflow_sandbox_erp|NAMES"
 
 echo "=============================================================================="
 echo "🎉 SUCCESS: Odoo 19 is LIVE on Public IP!"

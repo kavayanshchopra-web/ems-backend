@@ -1,18 +1,60 @@
 # ==============================================================================
-# OmniFlow EMS — Dedicated Sandbox ERP Engine (Odoo 19)
-# Mode: Direct VPS Public IP Access (http://66.29.135.156:8069)
-# Database: Supabase Cloud PostgreSQL (ap-south-1)
+# OmniFlow EMS — Dedicated Sandbox ERP Engine (Odoo 19 + PostgreSQL 16)
+# Local Docker Bridge (Zero Network/IPv6 Issues, Instant Boot)
 # ==============================================================================
 
 services:
+  # 1. Ultra-lightweight PostgreSQL 16 (Only 128MB RAM footprint)
+  postgres:
+    image: postgres:16-alpine
+    container_name: omniflow_sandbox_erp_db
+    restart: unless-stopped
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c max_connections=20
+      -c work_mem=2MB
+    deploy:
+      resources:
+        limits:
+          memory: 150M
+    environment:
+      POSTGRES_DB: omniflow_sandbox_erp
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo_sandbox_secure_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ./storage/postgres_data:/var/lib/postgresql/data/pgdata
+    networks:
+      - omniflow_erp_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo -d omniflow_sandbox_erp"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # 2. Odoo 19 Community Core Engine
   odoo:
     image: odoo:19.0
     container_name: omniflow_sandbox_erp_app
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
-      - "0.0.0.0:8069:8069" # Accessible via public IP
+      - "0.0.0.0:8069:8069" # Direct access via VPS IP
       - "0.0.0.0:8072:8072"
     volumes:
       - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
       - ./storage/filestore:/var/lib/odoo
       - ./storage/logs:/var/log/odoo
+    environment:
+      - HOST=postgres
+      - USER=odoo
+      - PASSWORD=odoo_sandbox_secure_pass
+    networks:
+      - omniflow_erp_net
+
+networks:
+  omniflow_erp_net:
+    driver: bridge
