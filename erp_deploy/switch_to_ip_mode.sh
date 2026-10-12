@@ -1,0 +1,34 @@
+#!/bin/bash
+# ==============================================================================
+# OmniFlow EMS - 1-Click VPS Public IP Mode Activator for Odoo 19
+# Target URL: http://66.29.135.156:8069
+# ==============================================================================
+
+set -e
+
+ERP_DIR="/var/www/omniflow-erp"
+echo "=============================================================================="
+echo "🚀 ACTIVATING PUBLIC IP ACCESS FOR ODOO 19"
+echo "🌐 URL: http://66.29.135.156:8069"
+echo "=============================================================================="
+
+# 1. Update compose file in ERP directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cp "$SCRIPT_DIR/docker-compose.sandbox.yml" "$ERP_DIR/docker-compose.yml"
+cp -r "$SCRIPT_DIR/config" "$ERP_DIR/" 2>/dev/null || true
+
+# 2. Re-launch Odoo Container on 0.0.0.0:8069
+cd "$ERP_DIR"
+docker compose up -d --force-recreate
+
+# 3. Open port 8069 in Firewall
+if command -v ufw &> /dev/null; then
+    echo "🛡️ Opening port 8069 in UFW Firewall..."
+    ufw allow 8069/tcp || true
+fi
+iptables -I INPUT -p tcp --dport 8069 -j ACCEPT 2>/dev/null || true
+
+echo "=============================================================================="
+echo "🎉 SUCCESS: Odoo 19 is LIVE on Public IP!"
+echo "👉 Open in your browser right now: http://66.29.135.156:8069"
+echo "=============================================================================="

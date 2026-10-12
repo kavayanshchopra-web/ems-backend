@@ -1,7 +1,7 @@
 # ==============================================================================
 # OmniFlow EMS — Dedicated Sandbox ERP Engine (Odoo 19)
-# Database: Supabase Cloud PostgreSQL (ap-south-1) - Zero Local DB Overhead!
-# Domain Target: sandbox-erp.employeemanagementsystems.com
+# Mode: Direct VPS Public IP Access (http://66.29.135.156:8069)
+# Database: Supabase Cloud PostgreSQL (ap-south-1)
 # ==============================================================================
 
 services:
@@ -10,8 +10,8 @@ services:
     container_name: omniflow_sandbox_erp_app
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8069:8069"
-      - "127.0.0.1:8072:8072"
+      - "0.0.0.0:8069:8069" # Accessible via public IP
+      - "0.0.0.0:8072:8072"
     volumes:
       - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
       - ./storage/filestore:/var/lib/odoo

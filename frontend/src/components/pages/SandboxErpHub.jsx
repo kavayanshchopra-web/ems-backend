@@ -64,7 +64,7 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
     }
   ]);
 
-  const erpDomain = 'https://sandbox-erp.employeemanagementsystems.com';
+  const erpDomain = 'http://66.29.135.156:8069';
 
   const coreApps = [
     {
