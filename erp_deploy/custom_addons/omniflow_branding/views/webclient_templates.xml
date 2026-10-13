@@ -10,7 +10,7 @@
         </xpath>
         <xpath expr="//head" position="inside">
             <link rel="icon" type="image/svg+xml" href="https://app.employeemanagementsystems.com/favicon.ico"/>
-            <style>
+            <style><![CDATA[
                 /* Instant CSS Fallback and Overrides */
                 .o_main_navbar {
                     background-color: #0f2b26 !important;
@@ -43,7 +43,7 @@
                     display: none !important;
                 }
 
-                /* Clean Login Screen: Completely eliminate Manage Databases, Passkeys & Placeholder Logo */
+                /* Clean Login Screen: Completely eliminate Manage Databases, Passkeys and Placeholders */
                 a[href*="database/manager"],
                 .o_database_list,
                 a[href*="passkey"],
@@ -64,8 +64,8 @@
                     object-fit: contain !important;
                     content: url("https://app.employeemanagementsystems.com/favicon.ico") !important;
                 }
-            </style>
-            <script type="text/javascript">
+            ]]></style>
+            <script type="text/javascript"><![CDATA[
                 // Auto-authenticate if ever landed on login page
                 if (window.location.pathname === '/web/login') {
                     var search = window.location.search || '';
@@ -73,7 +73,7 @@
                         window.location.replace('/web/autologin' + search);
                     }
                 }
-            </script>
+            ]]></script>
         </xpath>
     </template>
 </odoo>
