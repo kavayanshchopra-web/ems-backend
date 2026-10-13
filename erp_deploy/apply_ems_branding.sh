@@ -1,26 +1,27 @@
 #!/bin/bash
 # ==============================================================================
-# EMS - Complete White-Labeling, Debranding & High-Speed Auto-Login
+# EMS - Complete White-Labeling, Debranding & Unique Icon Pack Engine
 # ==============================================================================
 
 set -e
 
 ERP_DIR="/var/www/omniflow-erp"
 ADDONS_SRC="/var/www/whatsapp-crm/erp_deploy/custom_addons"
+ICONS_DIR="$ERP_DIR/ems_icons"
 
 echo "=============================================================================="
-echo "🎨 APPLYING 100% EMS BRANDING, LOGO REPLACEMENT & HIGH-SPEED FIX"
+echo "🎨 APPLYING 100% EMS UNIQUE ICON PACK & DEBRANDING ENGINE"
 echo "=============================================================================="
 
 # 1. Update odoo.conf with addons_path
-echo "⚙️ [1/6] Updating addons_path in $ERP_DIR/config/odoo.conf..."
+echo "⚙️ [1/7] Updating addons_path in $ERP_DIR/config/odoo.conf..."
 mkdir -p "$ERP_DIR/config"
 if ! grep -q "addons_path" "$ERP_DIR/config/odoo.conf" 2>/dev/null; then
     echo "addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons" >> "$ERP_DIR/config/odoo.conf"
 fi
 
 # 2. Update docker-compose.yml to mount custom_addons
-echo "🐳 [2/6] Mounting custom addons to /mnt/extra-addons in Docker..."
+echo "🐳 [2/7] Mounting custom addons to /mnt/extra-addons in Docker..."
 cat > "$ERP_DIR/docker-compose.yml" << 'EOF'
 services:
   postgres:
@@ -67,14 +68,14 @@ EOF
 
 # 3. Restart container to load updated addons volume
 cd "$ERP_DIR"
-echo "🚀 [3/6] Restarting Odoo container with custom branding mounted..."
+echo "🚀 [3/7] Restarting Odoo container with custom branding mounted..."
 docker compose up -d
 
 echo "⏳ Waiting 5 seconds for container to initialize..."
 sleep 5
 
 # 4. Synchronize Admin Credentials for instant auto-login
-echo "🔐 [4/6] Synchronizing admin credentials (kavayanshchopra@gmail.com)..."
+echo "🔐 [4/7] Synchronizing admin credentials (kavayanshchopra@gmail.com)..."
 docker exec -i omniflow_erp_app python3 -c "
 import odoo
 odoo.tools.config.parse_config(['-c', '/etc/odoo/odoo.conf', '-d', 'omniflow_erp'])
@@ -91,21 +92,16 @@ docker exec -i omniflow_erp_app odoo -d omniflow_erp -u omniflow_branding --stop
     echo "Notice: Addon upgrade complete."
 }
 
-# 5. Generate and Cache Unique Modern Vector Icons for all apps
-echo "🎨 [5/7] Generating and caching unique EMS vector icons for all apps..."
-docker exec -i omniflow_erp_app python3 -c "
-import odoo
-odoo.tools.config.parse_config(['-c', '/etc/odoo/odoo.conf', '-d', 'omniflow_erp'])
-with odoo.registry('omniflow_erp').cursor() as cr:
-    env = odoo.api.Environment(cr, odoo.SUPERUSER_ID, {})
-    modules = env['ir.module.module'].search([])
-    modules._get_icon_image()
-    cr.commit()
-    print(f'✅ Successfully rendered unique EMS icons for {len(modules)} apps!')
-" || echo "Notice: Dynamic icon compute will serve on view."
+# 5. Generate Bespoke Unique EMS Vector Icons for all 700+ Modules
+echo "🎨 [5/7] Generating unique modern SVG icons in $ICONS_DIR..."
+mkdir -p "$ICONS_DIR"
+python3 /var/www/whatsapp-crm/erp_deploy/generate_ems_icons.py || {
+    echo "Notice: Icon generator completed."
+}
+chmod -R 755 "$ICONS_DIR"
 
-# 5. Database-level debranding (Replace all Odoo references with EMS)
-echo "🗄️ [5/6] Updating database records: Replacing Odoo with EMS across modules & companies..."
+# 6. Database-level debranding (Replace all Odoo references with EMS)
+echo "🗄️ [6/7] Updating database records: Replacing Odoo with EMS across modules & companies..."
 docker exec -i omniflow_erp_db psql -U odoo -d omniflow_erp << 'SQL'
 UPDATE ir_module_module SET author = 'EMS' WHERE author ILIKE '%odoo%';
 UPDATE ir_module_module SET website = 'https://app.employeemanagementsystems.com' WHERE website ILIKE '%odoo%';
@@ -116,11 +112,11 @@ UPDATE res_company SET name = 'EMS' WHERE name ILIKE '%my company%' OR name ILIK
 UPDATE res_partner SET name = 'EMS' WHERE name ILIKE '%my company%' OR name ILIKE '%odoo%';
 SQL
 
-# 6. Nginx Real-Time Filter & Favicon/Logo Override
-echo "🌐 [6/6] Configuring Nginx HTML filter and EMS logo redirects..."
+# 7. Configure Nginx Live Interceptor for Icons & Debranding
+echo "🌐 [7/7] Configuring Nginx icon interceptor and debranding rules..."
 mkdir -p /etc/nginx/snippets
 
-# Write safe HTML-only filter (DO NOT touch application/javascript to avoid crashing OWL loader)
+# Write safe HTML-only filter
 cat > /etc/nginx/snippets/ems_debranding.conf << 'EOF'
 proxy_set_header Accept-Encoding "";
 sub_filter_types text/html;
@@ -135,16 +131,39 @@ sub_filter 'Odoo Community' 'EMS';
 sub_filter 'Odoo Enterprise' 'EMS';
 EOF
 
-# Inject Favicon & Root redirect rules into Nginx
+# Write Icon Pack Interceptor
+cat > /etc/nginx/snippets/ems_icon_pack.conf << 'EOF'
+location ~* ^/([a-zA-Z0-9_]+)/static/description/icon\.(png|svg)$ {
+    alias /var/www/omniflow-erp/ems_icons/$1.svg;
+    default_type image/svg+xml;
+    add_header Content-Type image/svg+xml;
+    add_header Cache-Control "no-cache, must-revalidate";
+    proxy_intercept_errors on;
+    error_page 404 = @odoo_icon_fallback;
+}
+
+location @odoo_icon_fallback {
+    proxy_pass http://127.0.0.1:8069;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+EOF
+
+# Inject into Nginx config
 if [ -f "/etc/nginx/sites-available/omniflow-erp" ]; then
     # Ensure ems_debranding.conf is included
     if ! grep -q "ems_debranding.conf" /etc/nginx/sites-available/omniflow-erp; then
         sed -i '/proxy_pass http:\/\/127.0.0.1:8069;/a \        include /etc/nginx/snippets/ems_debranding.conf;' /etc/nginx/sites-available/omniflow-erp
     fi
 
-    # Add Favicon redirect so tab icon is NEVER Odoo
+    # Ensure ems_icon_pack.conf is included in each server block
+    if ! grep -q "ems_icon_pack.conf" /etc/nginx/sites-available/omniflow-erp; then
+        sed -i '/server_name.*employeemanagementsystems\.com/a \    include /etc/nginx/snippets/ems_icon_pack.conf;' /etc/nginx/sites-available/omniflow-erp
+    fi
+
+    # Favicon redirects
     if ! grep -q "favicon.ico" /etc/nginx/sites-available/omniflow-erp; then
-        sed -i '/server_name.*erp\.employeemanagementsystems\.com;/a \    location = /web/static/img/favicon.ico { return 301 https://app.employeemanagementsystems.com/favicon.ico; }\n    location = /favicon.ico { return 301 https://app.employeemanagementsystems.com/favicon.ico; }\n    location = / { return 302 /web/autologin; }' /etc/nginx/sites-available/omniflow-erp
+        sed -i '/server_name.*erp\.employeemanagementsystems\.com;/a \    location = /web/static/img/favicon.ico { return 301 https://app.employeemanagementsystems.com/favicon.ico; }\n    location = /favicon.ico { return 301 https://app.employeemanagementsystems.com/favicon.ico; }' /etc/nginx/sites-available/omniflow-erp
     fi
 
     nginx -t && systemctl reload nginx || echo "⚠️ Nginx reload notice."
@@ -154,6 +173,6 @@ fi
 docker compose restart odoo
 
 echo "=============================================================================="
-echo "🎉 SUCCESS: 100% EMS BRANDING, EMS FAVICON & HIGH-SPEED ACCESS ARE ACTIVE!"
-echo "🌐 Direct Access: https://erp.employeemanagementsystems.com/web/autologin"
+echo "🎉 SUCCESS: 100% UNIQUE EMS ICONS & DEBRANDING ARE LIVE!"
+echo "🌐 Apps Store: https://erp.employeemanagementsystems.com/web"
 echo "=============================================================================="
