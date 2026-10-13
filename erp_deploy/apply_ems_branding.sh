@@ -91,6 +91,19 @@ docker exec -i omniflow_erp_app odoo -d omniflow_erp -u omniflow_branding --stop
     echo "Notice: Addon upgrade complete."
 }
 
+# 5. Generate and Cache Unique Modern Vector Icons for all apps
+echo "🎨 [5/7] Generating and caching unique EMS vector icons for all apps..."
+docker exec -i omniflow_erp_app python3 -c "
+import odoo
+odoo.tools.config.parse_config(['-c', '/etc/odoo/odoo.conf', '-d', 'omniflow_erp'])
+with odoo.registry('omniflow_erp').cursor() as cr:
+    env = odoo.api.Environment(cr, odoo.SUPERUSER_ID, {})
+    modules = env['ir.module.module'].search([])
+    modules._get_icon_image()
+    cr.commit()
+    print(f'✅ Successfully rendered unique EMS icons for {len(modules)} apps!')
+" || echo "Notice: Dynamic icon compute will serve on view."
+
 # 5. Database-level debranding (Replace all Odoo references with EMS)
 echo "🗄️ [5/6] Updating database records: Replacing Odoo with EMS across modules & companies..."
 docker exec -i omniflow_erp_db psql -U odoo -d omniflow_erp << 'SQL'
