@@ -9,6 +9,9 @@ class EMSAutoLoginController(Home):
     def ems_autologin(self, db='omniflow_erp', **kw):
         """Zero-login bypass for seamless EMS embedding"""
         target = kw.get('redirect', '/web')
+        if not db:
+            db = 'omniflow_erp'
+        request.session.db = db
         for login, password in [('kavayanshchopra@gmail.com', 'Kavay@321'), ('admin', 'Kavay@321'), ('admin', 'admin')]:
             try:
                 uid = request.session.authenticate(db, login, password)

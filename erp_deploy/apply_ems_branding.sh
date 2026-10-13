@@ -13,11 +13,18 @@ echo "==========================================================================
 echo "🎨 APPLYING 100% EMS UNIQUE ICON PACK & DEBRANDING ENGINE"
 echo "=============================================================================="
 
-# 1. Update odoo.conf with addons_path
-echo "⚙️ [1/7] Updating addons_path in $ERP_DIR/config/odoo.conf..."
+# 1. Update odoo.conf with addons_path and single-db lock
+echo "⚙️ [1/7] Updating addons_path and single-db lock in $ERP_DIR/config/odoo.conf..."
 mkdir -p "$ERP_DIR/config"
 if ! grep -q "addons_path" "$ERP_DIR/config/odoo.conf" 2>/dev/null; then
     echo "addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons" >> "$ERP_DIR/config/odoo.conf"
+fi
+# Enforce single database mode and disable database manager globally
+sed -i 's/^list_db =.*/list_db = False/' "$ERP_DIR/config/odoo.conf" 2>/dev/null || true
+if ! grep -q "dbfilter" "$ERP_DIR/config/odoo.conf" 2>/dev/null; then
+    echo "dbfilter = ^omniflow_erp$" >> "$ERP_DIR/config/odoo.conf"
+    echo "db_name = omniflow_erp" >> "$ERP_DIR/config/odoo.conf"
+    echo "list_db = False" >> "$ERP_DIR/config/odoo.conf"
 fi
 
 # 2. Update docker-compose.yml to mount custom_addons
