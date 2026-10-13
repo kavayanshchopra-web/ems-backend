@@ -50,7 +50,7 @@ db_host = postgres
 db_port = 5432
 db_user = odoo
 db_password = odoo_live_secure_pass_2026
-db_name = omniflow_erp
+; db_name = omniflow_erp
 db_maxconn = 20
 
 list_db = True
