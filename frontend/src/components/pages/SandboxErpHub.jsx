@@ -64,7 +64,10 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
     }
   ]);
 
-  const erpDomain = 'http://66.29.135.156:8069';
+  const LIVE_ERP_DOMAIN = 'https://erp.employeemanagementsystems.com';
+  const FALLBACK_ERP_DOMAIN = 'https://api.employeemanagementsystems.com:8443';
+  const [selectedDomain, setSelectedDomain] = useState(LIVE_ERP_DOMAIN);
+  const erpDomain = selectedDomain;
 
   const coreApps = [
     {
@@ -131,7 +134,7 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
         <div style={{ maxWidth: '650px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
             <span style={{
-              background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
+              background: 'linear-gradient(135deg, #0d9488, #059669)',
               color: '#ffffff',
               fontSize: '11px',
               fontWeight: '800',
@@ -139,7 +142,7 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
               borderRadius: '4px',
               letterSpacing: '0.5px'
             }}>
-              SANDBOX STAGING
+              ENTERPRISE ERP LIVE
             </span>
             <span style={{
               display: 'flex',
@@ -150,7 +153,7 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
               fontWeight: '600'
             }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
-              Live & Isolated
+              Production Connected
             </span>
           </div>
           <h1 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 6px 0', letterSpacing: '-0.3px' }}>
@@ -393,17 +396,53 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
       {/* Embedded Iframe View */}
       {activeTab === 'embedded' && (
         <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-          <div style={{ padding: '12px 16px', background: '#0f2b26', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '13px', fontWeight: '700' }}>
-              OmniFlow Sandbox ERP Workspace — {erpDomain}
-            </span>
+          <div style={{ padding: '12px 16px', background: '#0f2b26', color: '#ffffff', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '700' }}>
+                OmniFlow Enterprise ERP Workspace
+              </span>
+              <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.1)', padding: '2px', borderRadius: '6px' }}>
+                <button
+                  onClick={() => setSelectedDomain(LIVE_ERP_DOMAIN)}
+                  style={{
+                    border: 'none',
+                    background: selectedDomain === LIVE_ERP_DOMAIN ? '#0d9488' : 'transparent',
+                    color: '#ffffff',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                  title="Live Subdomain: https://erp.employeemanagementsystems.com"
+                >
+                  erp.employeemanagementsystems.com
+                </button>
+                <button
+                  onClick={() => setSelectedDomain(FALLBACK_ERP_DOMAIN)}
+                  style={{
+                    border: 'none',
+                    background: selectedDomain === FALLBACK_ERP_DOMAIN ? '#0d9488' : 'transparent',
+                    color: '#ffffff',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                  title="Instant SSL Bridge: https://api.employeemanagementsystems.com:8443"
+                >
+                  api port 8443 (SSL)
+                </button>
+              </div>
+            </div>
             <a
               href={erpDomain}
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: '#14d2cb', fontSize: '12px', fontWeight: '600', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
             >
-              <span>Popout Window</span>
+              <span>Popout Window ({erpDomain})</span>
               <ExternalLink size={14} />
             </a>
           </div>

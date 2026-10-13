@@ -8918,9 +8918,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-        {/* Sandbox Odoo 19 ERP & Operations Hub */}
+        {/* OmniFlow Odoo 19 ERP & Operations Hub */}
         {activeTab === 'erp_hub' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>Loading OmniFlow ERP Hub (Sandbox)...</div>}>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>Loading OmniFlow ERP Hub...</div>}>
             <SandboxErpHub
               authUser={effectiveAuthUser || authUser}
               companyId={effectiveAuthUser?.companyId || authUser?.companyId || 'org_default'}
