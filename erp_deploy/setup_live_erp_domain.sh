@@ -56,13 +56,11 @@ db_maxconn = 20
 list_db = True
 admin_passwd = omniflow_live_master_admin_2026!
 data_dir = /var/lib/odoo
-
-logfile = /var/log/odoo/odoo-server.log
 log_level = info
 EOF
 
 # ------------------------------------------------------------------------------
-# STEP 3: CONFIGURE DOCKER COMPOSE WITH RESILIENT BOOT
+# STEP 3: CONFIGURE DOCKER COMPOSE WITH BULLETPROOF NAMED VOLUMES
 # ------------------------------------------------------------------------------
 echo "🐳 [3/6] Configuring Docker Compose for Odoo 19 + PostgreSQL 16..."
 cat > "$ERP_DIR/docker-compose.yml" << 'EOF'
@@ -76,36 +74,32 @@ services:
       POSTGRES_USER: odoo
       POSTGRES_PASSWORD: odoo_live_secure_pass_2026
     volumes:
-      - ./storage/postgres_data:/var/lib/postgresql/data
+      - omniflow_postgres_data:/var/lib/postgresql/data
     networks:
       - omniflow_erp_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U odoo -d omniflow_erp || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 15
-      start_period: 30s
 
   odoo:
     image: odoo:19.0
     container_name: omniflow_erp_app
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_started
+      - postgres
     ports:
       - "127.0.0.1:8069:8069"
       - "127.0.0.1:8072:8072"
     volumes:
       - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
-      - ./storage/filestore:/var/lib/odoo
-      - ./storage/logs:/var/log/odoo
+      - omniflow_odoo_filestore:/var/lib/odoo
     environment:
       - HOST=postgres
       - USER=odoo
       - PASSWORD=odoo_live_secure_pass_2026
     networks:
       - omniflow_erp_net
+
+volumes:
+  omniflow_postgres_data:
+  omniflow_odoo_filestore:
 
 networks:
   omniflow_erp_net:
@@ -114,7 +108,7 @@ EOF
 
 # Launch containers
 cd "$ERP_DIR"
-echo "🚀 Restarting ERP containers..."
+echo "🚀 Restarting ERP containers with clean volume permissions..."
 docker compose down 2>/dev/null || true
 docker compose up -d
 
