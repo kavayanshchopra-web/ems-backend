@@ -45,7 +45,7 @@
 
                 /* Clean Login Screen: Completely eliminate Manage Databases, Passkeys and Placeholders */
                 a[href*="database/manager"],
-                .o_database_list,
+                a[href*="database/selector"],
                 a[href*="passkey"],
                 button:has([class*="passkey"]),
                 div:has(> a[href*="database/manager"]),
