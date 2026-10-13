@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Replace Page Title Everywhere -->
+    <template id="web_layout_branding" inherit_id="web.layout">
+        <xpath expr="//title" position="replace">
+            <title>OmniFlow EMS | Enterprise Operations</title>
+        </xpath>
+        <xpath expr="//head" position="inside">
+            <link rel="icon" type="image/svg+xml" href="https://app.employeemanagementsystems.com/favicon.ico"/>
+            <style>
+                /* Instant CSS Fallback & Overrides */
+                .o_main_navbar {
+                    background-color: #0f2b26 !important;
+                    background: linear-gradient(135deg, #0f2b26 0%, #064e43 100%) !important;
+                    border-bottom: 1px solid rgba(20, 210, 203, 0.25) !important;
+                }
+                .o_main_navbar .o_menu_brand {
+                    color: #14d2cb !important;
+                    font-weight: 800 !important;
+                    letter-spacing: 0.5px !important;
+                }
+                .o_main_navbar .o_nav_entry, .o_main_navbar .dropdown-toggle {
+                    color: #f8fafc !important;
+                }
+                .btn-primary, .btn-primary:active {
+                    background: linear-gradient(135deg, #0d9488 0%, #064e43 100%) !important;
+                    border-color: #0d9488 !important;
+                    color: #ffffff !important;
+                    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25) !important;
+                }
+                .btn-primary:hover {
+                    background: linear-gradient(135deg, #0f766e 0%, #042f2e 100%) !important;
+                    border-color: #0f766e !important;
+                }
+                /* Hide Odoo Upgrade Prompts */
+                a[href*="odoo.com"], .o_enterprise_label, .badge.text-bg-warning {
+                    display: none !important;
+                }
+            </style>
+        </xpath>
+    </template>
+</odoo>

@@ -1,0 +1,69 @@
+// ==============================================================================
+// OmniFlow EMS - Enterprise Theme Styles
+// Palette: Dark Emerald (#0f2b26) + Teal (#0d9488) + White (#ffffff)
+// ==============================================================================
+
+.o_main_navbar {
+    background: linear-gradient(135deg, #0f2b26 0%, #064e43 100%) !important;
+    border-bottom: 1px solid rgba(20, 210, 203, 0.25) !important;
+
+    .o_menu_brand {
+        font-weight: 800 !important;
+        color: #14d2cb !important;
+        letter-spacing: 0.05em;
+    }
+
+    .o_nav_entry, .dropdown-toggle {
+        color: #f8fafc !important;
+        font-weight: 600;
+        &:hover {
+            background-color: rgba(20, 210, 203, 0.15) !important;
+            color: #ffffff !important;
+        }
+    }
+}
+
+// Buttons & Actions
+.btn-primary, .btn-primary:active {
+    background: linear-gradient(135deg, #0d9488 0%, #064e43 100%) !important;
+    border-color: #0d9488 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+    transition: all 0.2s ease-in-out;
+
+    &:hover, &:focus {
+        background: linear-gradient(135deg, #0f766e 0%, #042f2e 100%) !important;
+        border-color: #0f766e !important;
+        box-shadow: 0 6px 16px rgba(13, 148, 136, 0.35);
+    }
+}
+
+// Apps Catalogue Cards Styling (EMS Look & Feel)
+.o_kanban_view .o_kanban_record {
+    border-radius: 14px !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 2px 8px -2px rgba(15, 43, 38, 0.06) !important;
+    transition: all 0.2s ease !important;
+
+    &:hover {
+        border-color: #0d9488 !important;
+        box-shadow: 0 8px 20px -4px rgba(13, 148, 136, 0.15) !important;
+        transform: translateY(-2px);
+    }
+}
+
+// Breadcrumb & Statusbar Active Steps
+.o_statusbar_status {
+    .o_arrow_button.o_arrow_button_current {
+        background-color: #0d9488 !important;
+        border-color: #0d9488 !important;
+        color: #ffffff !important;
+    }
+}
+
+// Hide Odoo-specific Branding
+a[href*="odoo.com"], .o_enterprise_label, button:has(.fa-diamond) {
+    display: none !important;
+}

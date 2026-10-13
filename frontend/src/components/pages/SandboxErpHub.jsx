@@ -64,8 +64,8 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
     }
   ]);
 
-  const LIVE_ERP_DOMAIN = 'https://erp.employeemanagementsystems.com';
-  const FALLBACK_ERP_DOMAIN = 'https://api.employeemanagementsystems.com:8443';
+  const LIVE_ERP_DOMAIN = 'https://erp.employeemanagementsystems.com/web/autologin';
+  const FALLBACK_ERP_DOMAIN = 'https://api.employeemanagementsystems.com:8443/web/autologin';
   const [selectedDomain, setSelectedDomain] = useState(LIVE_ERP_DOMAIN);
   const erpDomain = selectedDomain;
 
