@@ -222,17 +222,10 @@ systemctl reload nginx
 # ------------------------------------------------------------------------------
 # STEP 6: CERTBOT SSL ISSUANCE FOR erp.employeemanagementsystems.com
 # ------------------------------------------------------------------------------
-echo "🔑 [6/6] Checking DNS and obtaining SSL Certificate for $DOMAIN..."
-if host "$DOMAIN" >/dev/null 2>&1 || ping -c 1 "$DOMAIN" >/dev/null 2>&1; then
-    echo "✅ DNS is resolved for $DOMAIN! Running Certbot..."
-    certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email admin@employeemanagementsystems.com --redirect || {
-        echo "⚠️ Certbot hit a challenge issue, keeping HTTP and Bridge active."
-    }
-else
-    echo "ℹ️ Note: $DOMAIN DNS A Record has not propagated to this server yet."
-    echo "👉 Once you add the DNS A Record in Cloudflare/DNS manager:"
-    echo "   Run: certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email admin@employeemanagementsystems.com"
-fi
+echo "🔑 [6/6] Obtaining Official Let's Encrypt SSL Certificate for $DOMAIN..."
+certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email admin@employeemanagementsystems.com --redirect || {
+    echo "⚠️ Certbot notice: If challenge failed, check certbot logs."
+}
 
 systemctl reload nginx 2>/dev/null || true
 
