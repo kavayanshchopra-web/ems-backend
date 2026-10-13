@@ -176,6 +176,7 @@ server {
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        include /etc/nginx/snippets/ems_debranding.conf;
     }
 }
 
@@ -203,6 +204,7 @@ server {
         proxy_hide_header X-Frame-Options;
         proxy_hide_header Content-Security-Policy;
         add_header Content-Security-Policy "frame-ancestors 'self' https://app.employeemanagementsystems.com https://*.employeemanagementsystems.com *" always;
+        include /etc/nginx/snippets/ems_debranding.conf;
     }
 }
 EOF

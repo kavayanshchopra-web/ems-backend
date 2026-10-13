@@ -63,7 +63,18 @@
     }
 }
 
-// Hide Odoo-specific Branding
-a[href*="odoo.com"], .o_enterprise_label, button:has(.fa-diamond) {
+// Hide Odoo-specific Branding & Developer Metadata Columns
+a[href*="odoo.com"], a[href*="odoo"], .o_enterprise_label, button:has(.fa-diamond),
+.o_sub_menu_footer, .oe_footer, .o_footer {
     display: none !important;
+}
+
+// Hide developer / author / website columns in Apps List table
+.o_list_table {
+    th[data-name="author"], td[data-name="author"],
+    th[data-name="website"], td[data-name="website"],
+    th[name="author"], td[name="author"],
+    th[name="website"], td[name="website"] {
+        display: none !important;
+    }
 }

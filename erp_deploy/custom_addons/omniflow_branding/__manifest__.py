@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 {
-    'name': 'OmniFlow EMS - Brand System & Debranding',
+    'name': 'EMS',
     'version': '19.0.1.0.0',
-    'summary': 'Teal & Emerald Brand Theming, Complete Debranding, and Auto-Login',
+    'summary': 'EMS Brand System, Full Debranding and Auto-Login',
     'sequence': 1,
-    'author': 'OmniFlow EMS Engineering',
+    'author': 'EMS',
     'category': 'Themes/Backend',
     'license': 'LGPL-3',
     'depends': ['web', 'base'],

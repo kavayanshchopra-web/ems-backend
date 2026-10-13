@@ -157,10 +157,10 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
             </span>
           </div>
           <h1 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 6px 0', letterSpacing: '-0.3px' }}>
-            OmniFlow ERP &amp; Operations Hub
+            EMS ERP &amp; Operations Hub
           </h1>
           <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', lineHeight: '1.5' }}>
-            Powered by Odoo 19 Community (Cut-Off Frozen Core). Manage Sales, Inventory, Manufacturing &amp; GST Invoicing with automated WhatsApp customer alerts.
+            Manage Sales, Inventory, Manufacturing &amp; GST Invoicing with automated WhatsApp customer alerts.
           </p>
         </div>
 
@@ -399,7 +399,7 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
           <div style={{ padding: '12px 16px', background: '#0f2b26', color: '#ffffff', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ fontSize: '13px', fontWeight: '700' }}>
-                OmniFlow Enterprise ERP Workspace
+                EMS Enterprise Workspace
               </span>
               <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.1)', padding: '2px', borderRadius: '6px' }}>
                 <button
@@ -448,7 +448,7 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
           </div>
           <iframe
             src={erpDomain}
-            title="OmniFlow ERP Workspace"
+            title="EMS Workspace"
             style={{ width: '100%', height: '750px', border: 'none' }}
           />
         </div>
@@ -461,7 +461,7 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
             WhatsApp Automation Rules
           </h3>
           <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>
-            When triggers occur in the ERP engine, OmniFlow WhatsApp Engine dispatches instant client alerts using verified WhatsApp templates.
+            When triggers occur in the ERP engine, EMS WhatsApp Engine dispatches instant client alerts using verified WhatsApp templates.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
