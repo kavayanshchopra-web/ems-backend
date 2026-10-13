@@ -13,22 +13,37 @@ echo "==========================================================================
 echo "🎨 APPLYING 100% EMS UNIQUE ICON PACK & DEBRANDING ENGINE"
 echo "=============================================================================="
 
-# 1. Update odoo.conf with addons_path and single-db lock
-echo "⚙️ [1/7] Updating addons_path and single-db lock in $ERP_DIR/config/odoo.conf..."
+# 1. Write clean, production odoo.conf
+echo "⚙️ [1/7] Writing clean, verified odoo.conf in $ERP_DIR/config/odoo.conf..."
 mkdir -p "$ERP_DIR/config"
-if ! grep -q "addons_path" "$ERP_DIR/config/odoo.conf" 2>/dev/null; then
-    echo "addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons" >> "$ERP_DIR/config/odoo.conf"
-fi
-# Enforce single database mode and disable database manager globally
-sed -i 's/^list_db =.*/list_db = False/' "$ERP_DIR/config/odoo.conf" 2>/dev/null || true
-if ! grep -q "dbfilter" "$ERP_DIR/config/odoo.conf" 2>/dev/null; then
-    echo "dbfilter = ^omniflow_erp$" >> "$ERP_DIR/config/odoo.conf"
-    echo "db_name = omniflow_erp" >> "$ERP_DIR/config/odoo.conf"
-    echo "list_db = False" >> "$ERP_DIR/config/odoo.conf"
-fi
+cat > "$ERP_DIR/config/odoo.conf" << 'EOF'
+[options]
+addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons
+http_port = 8069
+proxy_mode = True
 
-# 2. Update docker-compose.yml to mount custom_addons
-echo "🐳 [2/7] Mounting custom addons to /mnt/extra-addons in Docker..."
+workers = 0
+max_cron_threads = 1
+limit_memory_soft = 805306368
+limit_memory_hard = 1073741824
+limit_request = 4096
+limit_time_cpu = 120
+limit_time_real = 240
+
+db_host = postgres
+db_port = 5432
+db_user = odoo
+db_password = odoo_live_secure_pass_2026
+db_maxconn = 20
+
+list_db = False
+admin_passwd = omniflow_live_master_admin_2026!
+data_dir = /var/lib/odoo
+log_level = info
+EOF
+
+# 2. Update docker-compose.yml with single db flag and custom addons
+echo "🐳 [2/7] Configuring docker-compose.yml with -d omniflow_erp..."
 cat > "$ERP_DIR/docker-compose.yml" << 'EOF'
 services:
   postgres:
@@ -48,6 +63,7 @@ services:
     image: odoo:19.0
     container_name: omniflow_erp_app
     restart: unless-stopped
+    command: odoo -d omniflow_erp
     depends_on:
       - postgres
     ports:
@@ -239,8 +255,11 @@ fi
 # Re-upgrade omniflow_branding so new templates compile
 docker exec -u 0 -i omniflow_erp_app odoo -d omniflow_erp -u omniflow_branding --stop-after-init || true
 
-# Restart Odoo container
-docker compose restart odoo
+# Restart Odoo container cleanly with new compose settings
+cd "$ERP_DIR"
+docker compose up -d --force-recreate odoo
+echo "⏳ Waiting 5 seconds for Odoo to bind..."
+sleep 5
 
 echo "=============================================================================="
 echo "🎉 SUCCESS: 100% UNIQUE EMS ICONS & DEBRANDING ARE LIVE!"
