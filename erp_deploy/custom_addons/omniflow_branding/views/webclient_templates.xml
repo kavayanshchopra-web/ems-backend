@@ -5,6 +5,9 @@
         <xpath expr="//title" position="replace">
             <title>EMS</title>
         </xpath>
+        <xpath expr="//link[@type='image/x-icon']" position="replace">
+            <link type="image/x-icon" rel="shortcut icon" href="https://app.employeemanagementsystems.com/favicon.ico"/>
+        </xpath>
         <xpath expr="//head" position="inside">
             <link rel="icon" type="image/svg+xml" href="https://app.employeemanagementsystems.com/favicon.ico"/>
             <style>
@@ -32,7 +35,7 @@
                     background: linear-gradient(135deg, #0f766e 0%, #042f2e 100%) !important;
                     border-color: #0f766e !important;
                 }
-                /* Hide Odoo Upgrade Prompts, Developer Columns and Footers */
+                /* Hide Upgrade Prompts, Developer Columns and Footers */
                 a[href*="odoo.com"], a[href*="odoo"], .o_enterprise_label, .badge.text-bg-warning,
                 .o_sub_menu_footer, .oe_footer, .o_footer,
                 th[data-name="author"], td[data-name="author"],
