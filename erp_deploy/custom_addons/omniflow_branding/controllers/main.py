@@ -13,7 +13,18 @@ class EMSAutoLoginController(Home):
             try:
                 uid = request.session.authenticate(db, login, password)
                 if uid:
-                    return request.redirect(target)
+                    res = request.redirect(target)
+                    try:
+                        res.set_cookie(
+                            'session_id', request.session.sid,
+                            max_age=90 * 86400,
+                            httponly=True,
+                            samesite='None',
+                            secure=True
+                        )
+                    except Exception:
+                        pass
+                    return res
             except Exception:
                 continue
         return request.redirect(target)

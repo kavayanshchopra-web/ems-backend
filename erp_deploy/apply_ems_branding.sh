@@ -115,7 +115,7 @@ chmod -R 755 "$ICONS_DIR"
 # Overwrite standard addons inside container as bulletproof secondary defense
 echo "🔄 Injecting PNG icons directly into Odoo container addons directory..."
 docker cp "$ICONS_DIR/." omniflow_erp_app:/tmp/ems_icons/
-docker exec -i omniflow_erp_app python3 -c "
+docker exec -u 0 -i omniflow_erp_app python3 -c "
 import os, shutil
 
 icons_dir = '/tmp/ems_icons'
@@ -132,9 +132,12 @@ for base_dir in addons_dirs:
         desc_dir = os.path.join(mod_path, 'static', 'description')
         png_src = os.path.join(icons_dir, f'{mod}.png')
         if os.path.exists(png_src) and os.path.exists(desc_dir):
-            dest_png = os.path.join(desc_dir, 'icon.png')
-            shutil.copyfile(png_src, dest_png)
-            count += 1
+            try:
+                dest_png = os.path.join(desc_dir, 'icon.png')
+                shutil.copyfile(png_src, dest_png)
+                count += 1
+            except Exception:
+                pass
 print(f'✅ Overwrote {count} internal Odoo container icon files with EMS PNGs!')
 " || echo "Notice: Container icon injection completed."
 
@@ -208,6 +211,11 @@ if [ -f "/etc/nginx/sites-available/omniflow-erp" ]; then
         sed -i '/proxy_pass http:\/\/127.0.0.1:8069;/a \        include /etc/nginx/snippets/ems_debranding.conf;' /etc/nginx/sites-available/omniflow-erp
     fi
 
+    # Ensure partitioned cookies for iframe embedding in Incognito
+    if ! grep -q "SameSite=None" /etc/nginx/sites-available/omniflow-erp; then
+        sed -i '/proxy_pass http:\/\/127.0.0.1:8069;/a \        proxy_cookie_path / "/; SameSite=None; Secure; Partitioned";' /etc/nginx/sites-available/omniflow-erp
+    fi
+
     # Ensure ems_icon_pack.conf is included in each server block
     if ! grep -q "ems_icon_pack.conf" /etc/nginx/sites-available/omniflow-erp; then
         sed -i '/server_name.*employeemanagementsystems\.com/a \    include /etc/nginx/snippets/ems_icon_pack.conf;' /etc/nginx/sites-available/omniflow-erp
@@ -220,6 +228,9 @@ if [ -f "/etc/nginx/sites-available/omniflow-erp" ]; then
 
     nginx -t && systemctl reload nginx || echo "⚠️ Nginx reload notice."
 fi
+
+# Re-upgrade omniflow_branding so new templates compile
+docker exec -u 0 -i omniflow_erp_app odoo -d omniflow_erp -u omniflow_branding --stop-after-init || true
 
 # Restart Odoo container
 docker compose restart odoo

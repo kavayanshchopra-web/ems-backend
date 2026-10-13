@@ -42,7 +42,38 @@
                 th[data-name="website"], td[data-name="website"] {
                     display: none !important;
                 }
+
+                /* Clean Login Screen: Completely eliminate Manage Databases, Passkeys & Placeholder Logo */
+                a[href*="database/manager"],
+                .o_database_list,
+                a[href*="passkey"],
+                button:has([class*="passkey"]),
+                div:has(> a[href*="database/manager"]),
+                div:has(> a[href*="passkey"]),
+                .o_footer_copyright,
+                .oe_footer,
+                p:has(> a[href*="database/manager"]) {
+                    display: none !important;
+                }
+
+                /* Replace "Your logo" with official EMS logo */
+                .card-body .text-center img,
+                .card-body img[alt="Logo"],
+                .oe_login_form img {
+                    max-height: 54px !important;
+                    object-fit: contain !important;
+                    content: url("https://app.employeemanagementsystems.com/favicon.ico") !important;
+                }
             </style>
+            <script type="text/javascript">
+                // Auto-authenticate if ever landed on login page
+                if (window.location.pathname === '/web/login') {
+                    var search = window.location.search || '';
+                    if (!search.includes('no_autologin=1')) {
+                        window.location.replace('/web/autologin' + search);
+                    }
+                }
+            </script>
         </xpath>
     </template>
 </odoo>
