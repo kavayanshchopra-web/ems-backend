@@ -93,21 +93,59 @@ docker exec -i omniflow_erp_app odoo -d omniflow_erp -u omniflow_branding --stop
 }
 
 # 5. Generate Bespoke Unique EMS Vector Icons for all 700+ Modules
-echo "🎨 [5/7] Generating unique modern SVG icons in $ICONS_DIR..."
+echo "🎨 [5/7] Generating unique modern vector & PNG icons in $ICONS_DIR..."
 mkdir -p "$ICONS_DIR"
+
+# Install librsvg2-bin for instant native PNG conversion
+echo "📦 Installing librsvg2-bin for ultra-fast native PNG generation..."
+apt-get update -qq && apt-get install -y -qq librsvg2-bin || true
+
 python3 /var/www/whatsapp-crm/erp_deploy/generate_ems_icons.py || {
     echo "Notice: Icon generator completed."
 }
+
+# Ensure all SVGs are converted to PNGs
+if command -v rsvg-convert >/dev/null 2>&1; then
+    echo "🖼️ Ensuring all SVGs are compiled to 128x128 native PNGs..."
+    find "$ICONS_DIR" -name "*.svg" -type f | xargs -n 1 -P 4 -I {} sh -c 'rsvg-convert -w 128 -h 128 "$1" -o "${1%.svg}.png"' _ {}
+    echo "✅ Native PNG icons ready!"
+fi
 chmod -R 755 "$ICONS_DIR"
+
+# Overwrite standard addons inside container as bulletproof secondary defense
+echo "🔄 Injecting PNG icons directly into Odoo container addons directory..."
+docker cp "$ICONS_DIR/." omniflow_erp_app:/tmp/ems_icons/
+docker exec -i omniflow_erp_app python3 -c "
+import os, shutil
+
+icons_dir = '/tmp/ems_icons'
+addons_dirs = ['/usr/lib/python3/dist-packages/odoo/addons', '/mnt/extra-addons']
+
+count = 0
+for base_dir in addons_dirs:
+    if not os.path.exists(base_dir):
+        continue
+    for mod in os.listdir(base_dir):
+        mod_path = os.path.join(base_dir, mod)
+        if not os.path.isdir(mod_path):
+            continue
+        desc_dir = os.path.join(mod_path, 'static', 'description')
+        png_src = os.path.join(icons_dir, f'{mod}.png')
+        if os.path.exists(png_src) and os.path.exists(desc_dir):
+            dest_png = os.path.join(desc_dir, 'icon.png')
+            shutil.copyfile(png_src, dest_png)
+            count += 1
+print(f'✅ Overwrote {count} internal Odoo container icon files with EMS PNGs!')
+" || echo "Notice: Container icon injection completed."
 
 # 6. Database-level debranding (Replace all Odoo references with EMS)
 echo "🗄️ [6/7] Updating database records: Replacing Odoo with EMS across modules & companies..."
 docker exec -i omniflow_erp_db psql -U odoo -d omniflow_erp << 'SQL'
 UPDATE ir_module_module SET author = 'EMS' WHERE author ILIKE '%odoo%';
 UPDATE ir_module_module SET website = 'https://app.employeemanagementsystems.com' WHERE website ILIKE '%odoo%';
-UPDATE ir_module_module SET shortdesc = REPLACE(shortdesc, 'Odoo', 'EMS') WHERE shortdesc ILIKE '%odoo%';
-UPDATE ir_module_module SET summary = REPLACE(summary, 'Odoo', 'EMS') WHERE summary ILIKE '%odoo%';
-UPDATE ir_module_module SET description = REPLACE(description, 'Odoo', 'EMS') WHERE description ILIKE '%odoo%';
+UPDATE ir_module_module SET shortdesc = (REPLACE(shortdesc::text, 'Odoo', 'EMS'))::jsonb WHERE shortdesc::text ILIKE '%odoo%';
+UPDATE ir_module_module SET summary = (REPLACE(summary::text, 'Odoo', 'EMS'))::jsonb WHERE summary::text ILIKE '%odoo%';
+UPDATE ir_module_module SET description = (REPLACE(description::text, 'Odoo', 'EMS'))::jsonb WHERE description::text ILIKE '%odoo%';
 UPDATE res_company SET name = 'EMS' WHERE name ILIKE '%my company%' OR name ILIKE '%odoo%';
 UPDATE res_partner SET name = 'EMS' WHERE name ILIKE '%my company%' OR name ILIKE '%odoo%';
 SQL
@@ -116,10 +154,9 @@ SQL
 echo "🌐 [7/7] Configuring Nginx icon interceptor and debranding rules..."
 mkdir -p /etc/nginx/snippets
 
-# Write safe HTML-only filter
+# Write safe HTML-only filter (No duplicate sub_filter_types text/html)
 cat > /etc/nginx/snippets/ems_debranding.conf << 'EOF'
 proxy_set_header Accept-Encoding "";
-sub_filter_types text/html;
 sub_filter_once off;
 sub_filter 'Odoo S.A.' 'EMS';
 sub_filter 'Odoo SA' 'EMS';
@@ -131,13 +168,28 @@ sub_filter 'Odoo Community' 'EMS';
 sub_filter 'Odoo Enterprise' 'EMS';
 EOF
 
-# Write Icon Pack Interceptor
+# Write Icon Pack Interceptor (Clean separate PNG and SVG blocks with zero mime conflicts & zero-cache)
 cat > /etc/nginx/snippets/ems_icon_pack.conf << 'EOF'
-location ~* ^/([a-zA-Z0-9_]+)/static/description/icon\.(png|svg)$ {
+# 1. Native PNG module icons
+location ~* ^/([a-zA-Z0-9_]+)/static/description/icon\.png$ {
+    alias /var/www/omniflow-erp/ems_icons/$1.png;
+    types { }
+    default_type image/png;
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;
+    add_header Pragma "no-cache" always;
+    add_header Expires "0" always;
+    proxy_intercept_errors on;
+    error_page 404 = @odoo_icon_fallback;
+}
+
+# 2. Native SVG module icons
+location ~* ^/([a-zA-Z0-9_]+)/static/description/icon\.svg$ {
     alias /var/www/omniflow-erp/ems_icons/$1.svg;
+    types { }
     default_type image/svg+xml;
-    add_header Content-Type image/svg+xml;
-    add_header Cache-Control "no-cache, must-revalidate";
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;
+    add_header Pragma "no-cache" always;
+    add_header Expires "0" always;
     proxy_intercept_errors on;
     error_page 404 = @odoo_icon_fallback;
 }

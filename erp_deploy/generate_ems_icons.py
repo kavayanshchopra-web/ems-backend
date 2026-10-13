@@ -310,9 +310,29 @@ try:
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(svg_content)
             
-    print(f"🎉 SUCCESS: Generated unique EMS icons for ALL {len(all_modules)} modules!")
+    print(f"🎉 SUCCESS: Generated unique EMS SVG icons for ALL {len(all_modules)} modules!")
 except Exception as e:
     print(f"Notice during batch query: {e}")
+
+# 3. Convert all generated SVG icons to native crisp 128x128 PNG files
+print("🖼️ Converting all SVG icons to native high-res 128x128 PNG binaries...")
+try:
+    import shutil
+    has_rsvg = shutil.which("rsvg-convert") is not None
+    if has_rsvg:
+        svg_files = [f for f in os.listdir(ICONS_DIR) if f.endswith(".svg")]
+        converted = 0
+        for svg_f in svg_files:
+            src = os.path.join(ICONS_DIR, svg_f)
+            dest = os.path.join(ICONS_DIR, svg_f[:-4] + ".png")
+            ret = subprocess.run(["rsvg-convert", "-w", "128", "-h", "128", src, "-o", dest], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if ret.returncode == 0:
+                converted += 1
+        print(f"✅ Converted {converted}/{len(svg_files)} icons to native PNG format via rsvg-convert!")
+    else:
+        print("⚠️ rsvg-convert not found. It will be installed by apply_ems_branding.sh")
+except Exception as conv_err:
+    print(f"Notice during PNG conversion: {conv_err}")
 
 print("==============================================================================")
 print(f"🌟 EMS Icon Pack is LIVE in {ICONS_DIR}")
