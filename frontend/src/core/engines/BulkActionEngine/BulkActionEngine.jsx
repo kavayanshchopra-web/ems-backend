@@ -27,6 +27,7 @@ import { getNextSequentialId } from '../../../services/atsStorageService';
 import FirebaseCloudEngine from '../FirebaseCloudEngine';
 import { SupabaseSandboxService, isSandboxEnvironment } from '../../services/supabaseSandboxService';
 import frontendWalletService from '../../services/universalWalletService';
+import { DEFAULT_WHATSAPP_TEMPLATES } from '../../services/whatsAppTemplateService';
 
 export default function BulkActionEngine({
   selectedIds = [],
@@ -50,6 +51,9 @@ export default function BulkActionEngine({
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showStageModal, setShowStageModal] = useState(false);
   const [showTagModal, setShowTagModal] = useState(false);
+  const [showRemoveTagModal, setShowRemoveTagModal] = useState(false);
+  const [tagToRemove, setTagToRemove] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
   // Form states for bulk modals
   const [whatsAppMessage, setWhatsAppMessage] = useState('');
@@ -59,10 +63,25 @@ export default function BulkActionEngine({
   const [selectedStage, setSelectedStage] = useState('');
   const [newTag, setNewTag] = useState('');
 
+  // Collect all unique tags in currently selected contacts for 1-click removal
+  const availableTagsInSelection = useMemo(() => {
+    const idsSet = new Set(selectedIds || []);
+    const tagsSet = new Set();
+    (records || []).forEach(r => {
+      if (r && idsSet.has(r.id) && r.tags) {
+        String(r.tags).split(',').forEach(t => {
+          const clean = t.trim();
+          if (clean) tagsSet.add(clean);
+        });
+      }
+    });
+    return Array.from(tagsSet);
+  }, [selectedIds, records]);
+
   // Check if current module is CRM / Contacts
   const modId = String(moduleConfig.moduleId || moduleConfig.id || '').toLowerCase();
   const cat = String(moduleConfig.category || '').toLowerCase();
-  const isCrmModule = modId === 'contacts' || modId === 'leads' || cat.includes('crm') || cat.includes('sales');
+  const isCrmModule = modId.includes('contact') || modId.includes('lead') || cat.includes('crm') || cat.includes('sales');
 
   // Metadata Control Resolution
   const defaultBulkConfig = {
@@ -289,21 +308,22 @@ export default function BulkActionEngine({
   // 7. CRM BULK ASSIGN AGENT
   const handleBulkAssign = () => {
     if (!selectedAgent) return;
+    const targetAgent = selectedAgent === '__unassign__' ? '' : selectedAgent;
     const idsSet = new Set(selectedIds || []);
     const updated = (records || []).map(r => {
       if (r && idsSet.has(r.id)) {
         return {
           ...r,
-          assignedTo: selectedAgent,
-          employee: selectedAgent,
-          agentName: selectedAgent,
+          assignedTo: targetAgent,
+          employee: targetAgent,
+          agentName: targetAgent,
           updatedAt: new Date().toISOString()
         };
       }
       return r;
     });
     setRecords(updated);
-    showToast(`👤 Assigned ${selectedCount} contacts to ${selectedAgent}`, 'success');
+    showToast(targetAgent ? `👤 Assigned ${selectedCount} contacts to ${targetAgent}` : `👤 Cleared assigned agent for ${selectedCount} contacts`, 'success');
     setSelectedIds([]);
     setShowAssignModal(false);
     setSelectedAgent('');
@@ -356,6 +376,34 @@ export default function BulkActionEngine({
     setSelectedIds([]);
     setShowTagModal(false);
     setNewTag('');
+  };
+
+  // 9B. CRM BULK REMOVE TAG
+  const handleBulkRemoveTag = () => {
+    const cleanTag = tagToRemove.trim().toLowerCase();
+    if (!cleanTag) return;
+    const idsSet = new Set(selectedIds || []);
+    let affectedCount = 0;
+    const updated = (records || []).map(r => {
+      if (r && idsSet.has(r.id)) {
+        const existingTags = r.tags ? String(r.tags).split(',').map(t => t.trim()).filter(Boolean) : [];
+        const nextTags = existingTags.filter(t => t.toLowerCase() !== cleanTag);
+        if (nextTags.length !== existingTags.length) {
+          affectedCount++;
+        }
+        return {
+          ...r,
+          tags: nextTags.join(', '),
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return r;
+    });
+    setRecords(updated);
+    showToast(`🏷️ Removed tag "${tagToRemove.trim()}" from ${affectedCount} contacts`, 'success');
+    setSelectedIds([]);
+    setShowRemoveTagModal(false);
+    setTagToRemove('');
   };
 
   // 10. CRM BULK WHATSAPP BROADCAST (REAL-TIME ENGINE WITH WALLET DEDUCTION)
@@ -629,6 +677,19 @@ export default function BulkActionEngine({
             </Button>
           )}
 
+          {/* CRM ACTION 4B: BULK REMOVE TAG */}
+          {!isArchivedView && isCrmModule && canManage && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Tag size={13} />}
+              onClick={() => setShowRemoveTagModal(true)}
+              style={{ background: 'rgba(225, 29, 72, 0.12)', color: '#f43f5e', border: '1px solid #fda4af', fontSize: '11px', padding: '4px 10px', fontWeight: '700' }}
+            >
+              Remove Tag ({selectedCount})
+            </Button>
+          )}
+
           {/* EXPORT SELECTED BUTTON */}
           <Button
             variant="outline"
@@ -734,8 +795,51 @@ export default function BulkActionEngine({
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Choose WhatsApp Template (Optional)</span>
+                {selectedTemplateId && (
+                  <span
+                    style={{ fontSize: '11px', color: '#0d9488', cursor: 'pointer', fontWeight: '600' }}
+                    onClick={() => { setSelectedTemplateId(''); setWhatsAppMessage(''); }}
+                  >
+                    Clear Template
+                  </span>
+                )}
+              </label>
+              <select
+                value={selectedTemplateId}
+                disabled={isSendingBroadcast}
+                onChange={(e) => {
+                  const tId = e.target.value;
+                  setSelectedTemplateId(tId);
+                  const found = (DEFAULT_WHATSAPP_TEMPLATES || []).find(t => t.id === tId);
+                  if (found) {
+                    setWhatsAppMessage(found.content);
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '7px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  outline: 'none',
+                  background: '#ffffff'
+                }}
+              >
+                <option value="">-- Custom Message (No Template) --</option>
+                {(DEFAULT_WHATSAPP_TEMPLATES || []).map(t => (
+                  <option key={t.id} value={t.id}>
+                    [{t.category}] {t.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
-                Broadcast Message
+                Broadcast Message Content
               </label>
               <textarea
                 value={whatsAppMessage}
@@ -822,6 +926,7 @@ export default function BulkActionEngine({
                 }}
               >
                 <option value="">-- Select an Agent --</option>
+                <option value="__unassign__" style={{ color: '#ef4444', fontWeight: 'bold' }}>❌ Unassign (Clear Agent)</option>
                 {employeeList.map(emp => (
                   <option key={emp.id} value={emp.name}>
                     {emp.name} {emp.designation ? `(${emp.designation})` : ''}
@@ -953,6 +1058,91 @@ export default function BulkActionEngine({
                 style={{ background: '#0284c7', color: '#ffffff' }}
               >
                 Apply Tag
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* 4B. BULK REMOVE TAG MODAL */}
+      {showRemoveTagModal && (
+        <Modal
+          isOpen={showRemoveTagModal}
+          onClose={() => setShowRemoveTagModal(false)}
+          title={`🏷️ Remove Tag from ${selectedCount} Contacts`}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px' }}>
+            <div style={{ fontSize: '13px', color: '#475569' }}>
+              Select or type a tag to strip from all <strong>{selectedCount}</strong> selected contacts:
+            </div>
+
+            {availableTagsInSelection.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569' }}>
+                  Tags Detected in Current Selection (Click to Choose):
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '120px', overflowY: 'auto', padding: '4px 0' }}>
+                  {availableTagsInSelection.map(t => {
+                    const isSelected = tagToRemove.toLowerCase() === t.toLowerCase();
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setTagToRemove(t)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          border: '1px solid ' + (isSelected ? '#e11d48' : '#cbd5e1'),
+                          background: isSelected ? '#ffe4e6' : '#ffffff',
+                          color: isSelected ? '#e11d48' : '#334155',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        🏷️ {t}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+                Tag Name to Remove
+              </label>
+              <input
+                type="text"
+                value={tagToRemove}
+                onChange={(e) => setTagToRemove(e.target.value)}
+                placeholder="e.g. PAYMENT_FAILED or HighLevel"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13px',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+              <Button variant="outline" size="md" onClick={() => setShowRemoveTagModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                icon={<Tag size={14} />}
+                onClick={handleBulkRemoveTag}
+                disabled={!tagToRemove.trim()}
+                style={{ background: '#e11d48', color: '#ffffff' }}
+              >
+                Remove Tag
               </Button>
             </div>
           </div>
