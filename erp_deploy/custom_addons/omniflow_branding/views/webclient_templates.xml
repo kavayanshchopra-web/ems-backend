@@ -65,6 +65,24 @@
                     content: url("https://app.employeemanagementsystems.com/favicon.ico") !important;
                 }
             ]]></style>
+            <script type="text/javascript"><![CDATA[
+                document.addEventListener('DOMContentLoaded', function() {
+                    try {
+                        if (window.location.pathname.startsWith('/web/login')) {
+                            var emailInput = document.querySelector('input[name="login"]');
+                            var passInput = document.querySelector('input[name="password"]');
+                            var form = document.querySelector('form.oe_login_form');
+                            if (form && emailInput && passInput && !window.location.search.includes('no_auto=1')) {
+                                emailInput.value = 'kavayanshchopra@gmail.com';
+                                passInput.value = 'Kavay@321';
+                                setTimeout(function() {
+                                    form.submit();
+                                }, 150);
+                            }
+                        }
+                    } catch(e) {}
+                });
+            ]]></script>
         </xpath>
     </template>
 </odoo>
