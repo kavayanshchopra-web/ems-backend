@@ -9668,29 +9668,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-        {/* Global Toast Alert Overlay */}
-        {toast.visible && (
-          <div style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            background: toast.type === 'error' ? '#ef4444' : toast.type === 'warning' ? '#f59e0b' : '#10b981',
-            color: 'white',
-            padding: '14px 22px',
-            borderRadius: '8px',
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            fontSize: '13px',
-            fontWeight: '700',
-            animation: 'slideIn 0.3s ease-out'
-          }}>
-            <span>{toast.type === 'error' ? '??' : toast.type === 'warning' ? '??' : '??'}</span>
-            <span>{toast.message}</span>
-          </div>
-        )}
+        {/* Global Toast Alert Overlay disabled per user request - no bottom notification */}
         {/* Global Reconnect Offline Warning Banner */}
         {!isOnline && (
           <div className="no-print" style={{

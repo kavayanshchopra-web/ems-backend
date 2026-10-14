@@ -674,7 +674,6 @@ export default function ActionEngine({
         }));
       }
 
-      showToast(`Permanently deleted ${entityName.toLowerCase()} "${nameStr}".`, 'info');
     } catch (err) {
       console.error('Permanent delete error:', err);
       showToast(`❌ Error deleting record: ${err.message}`, 'error');

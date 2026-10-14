@@ -284,7 +284,6 @@ export default function BulkActionEngine({
     setSelectedIds([]);
     setIsBulkDeleting(false);
     setShowBulkDeleteModal(false);
-    showToast(`Permanently deleted ${matchedRecords.length} ${matchedRecords.length === 1 ? entityName.toLowerCase() : entityNamePlural.toLowerCase()}.`, 'success');
   };
 
   // 4. RESTORE SELECTED (For Archived View)
