@@ -33,6 +33,65 @@ const getValString = (val, fallback = '') => {
   return fallback;
 };
 
+export const extractRecordTimestamp = (record) => {
+  if (!record || typeof record !== 'object') return 0;
+
+  // Direct numeric timestamp
+  if (typeof record._createdAt === 'number' && record._createdAt > 0) {
+    return record._createdAt < 1e11 ? record._createdAt * 1000 : record._createdAt;
+  }
+
+  // Priority search for date/timestamp fields
+  const candidates = [
+    record.createdAt,
+    record.created_at,
+    record.callTime,
+    record.call_time,
+    record.timestamp,
+    record.createdDate,
+    record.creationDate,
+    record.appliedDate,
+    record.date,
+    record.dateTime,
+    record.updatedAt,
+    record.updated_at
+  ];
+
+  for (const cand of candidates) {
+    if (!cand) continue;
+    if (typeof cand === 'number' && cand > 0) {
+      return cand < 1e11 ? cand * 1000 : cand;
+    }
+    if (typeof cand === 'string') {
+      const parsed = Date.parse(cand);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+      const num = Number(cand);
+      if (!isNaN(num) && num > 0) return num < 1e11 ? num * 1000 : num;
+    }
+    if (cand instanceof Date && !isNaN(cand.getTime())) {
+      return cand.getTime();
+    }
+  }
+
+  // Fallback: check if id contains a unix timestamp (e.g. con_1728900000_abc or 1728900000)
+  const idStr = String(record.id || record._id || record.originalId || '');
+  const digitsMatch = idStr.match(/\d{10,13}/);
+  if (digitsMatch) {
+    const num = Number(digitsMatch[0]);
+    return num < 1e11 ? num * 1000 : num;
+  }
+
+  return 0;
+};
+
+export const extractRecordIdNumber = (record) => {
+  if (!record) return 0;
+  const id = record.id || record._id || record.originalId || record.code || '';
+  if (typeof id === 'number') return id;
+  const digits = String(id).replace(/\D/g, '');
+  return digits ? parseInt(digits.slice(-9), 10) : 0;
+};
+
 export default function LayoutEngine({
   moduleConfig = {},
   records = [],
@@ -214,25 +273,45 @@ export default function LayoutEngine({
     return FilterEngine.filterRecords(searchMatched, filterValues, moduleConfig);
   }, [activeModuleRecords, searchQuery, filterValues, moduleConfig]);
 
-  // 2. SORTING ENGINE PIPELINE (Memoized)
+  // 2. SORTING ENGINE PIPELINE (Memoized) - Guaranteed Newest on Top by Default
   const sortedRecords = useMemo(() => {
     return [...(filteredRecords || []).filter(r => !!r)].sort((a, b) => {
       if (!a || !b) return 0;
+
+      const isDateSort = [
+        'createdAt', 'created_at', '_createdAt', 'creationDate', 'createdDate',
+        'callTime', 'call_time', 'timestamp', 'date', 'appliedDate'
+      ].includes(sortKey);
+
+      if (isDateSort) {
+        const timeA = extractRecordTimestamp(a);
+        const timeB = extractRecordTimestamp(b);
+        if (timeA !== timeB) {
+          return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
+        }
+        // Secondary ID tie-breaker so newly created records always float to Row #1
+        const idA = extractRecordIdNumber(a);
+        const idB = extractRecordIdNumber(b);
+        return sortDir === 'asc' ? idA - idB : idB - idA;
+      }
+
       let valA = a[sortKey];
       let valB = b[sortKey];
-
-      if (sortKey === 'createdAt' || sortKey === 'callTime' || sortKey === 'timestamp' || sortKey === '_createdAt') {
-        valA = Number(a?._createdAt || (a?.callTime ? new Date(a.callTime).getTime() : 0) || (a?.createdAt ? new Date(a.createdAt).getTime() : 0)) || 0;
-        valB = Number(b?._createdAt || (b?.callTime ? new Date(b.callTime).getTime() : 0) || (b?.createdAt ? new Date(b.createdAt).getTime() : 0)) || 0;
-        return sortDir === 'asc' ? valA - valB : valB - valA;
-      }
 
       valA = getValString(valA).toLowerCase();
       valB = getValString(valB).toLowerCase();
 
       if (valA < valB) return sortDir === 'asc' ? -1 : 1;
       if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-      return 0;
+
+      // Deterministic tie-breaker for equal non-date sort: newest first
+      const timeA = extractRecordTimestamp(a);
+      const timeB = extractRecordTimestamp(b);
+      if (timeA !== timeB) return timeB - timeA;
+
+      const idA = extractRecordIdNumber(a);
+      const idB = extractRecordIdNumber(b);
+      return idB - idA;
     });
   }, [filteredRecords, sortKey, sortDir]);
 

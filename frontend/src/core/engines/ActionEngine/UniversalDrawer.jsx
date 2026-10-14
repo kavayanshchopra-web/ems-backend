@@ -22,6 +22,36 @@ const getValString = (val, fallback = '') => {
   return fallback;
 };
 
+const formatAuditDate = (val) => {
+  if (!val) return '—';
+  let dateObj = null;
+  if (typeof val === 'number') {
+    dateObj = new Date(val < 1e11 ? val * 1000 : val);
+  } else if (typeof val === 'string') {
+    const num = Number(val);
+    if (!isNaN(num) && num > 1e9) {
+      dateObj = new Date(num < 1e11 ? num * 1000 : num);
+    } else {
+      const parsed = new Date(val);
+      if (!isNaN(parsed.getTime())) dateObj = parsed;
+    }
+  } else if (val instanceof Date) {
+    dateObj = val;
+  }
+
+  if (!dateObj || isNaN(dateObj.getTime())) return String(val);
+
+  return dateObj.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }) + ', ' + dateObj.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 export default function UniversalDrawer({
   isOpen = false,
   onClose = () => {},
@@ -172,6 +202,74 @@ export default function UniversalDrawer({
             </select>
           </div>
         )}
+
+        {/* SYSTEM AUDIT TRAIL CARD (IMMUTABLE) */}
+        {(() => {
+          const rawCreated = record.createdAt || record.created_at || record._createdAt || record.timestamp || record.callTime || record.date;
+          const rawUpdated = record.updatedAt || record.updated_at || record._updatedAt || record.lastModified;
+          const createdBy = record.createdBy || record.created_by || record.author || record.creator || record.agentName || 'System Admin';
+          const updatedBy = record.updatedBy || record.updated_by || record.modifiedBy || createdBy;
+
+          return (
+            <div style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '12px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '11px', fontWeight: '800', color: '#0f766e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🛡️</span> SYSTEM AUDIT TRAIL
+                </div>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: '700',
+                  color: '#64748b',
+                  background: '#f1f5f9',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  border: '1px solid #cbd5e1',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  🔒 Immutable
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                {/* CREATED AUDIT */}
+                <div style={{ background: '#ffffff', padding: '8px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+                    Created Date & Author
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a', marginTop: '2px' }}>
+                    {formatAuditDate(rawCreated)}
+                  </div>
+                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#0d9488', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>👤</span> {createdBy}
+                  </div>
+                </div>
+
+                {/* UPDATED AUDIT */}
+                <div style={{ background: '#ffffff', padding: '8px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+                    Last Modified
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a', marginTop: '2px' }}>
+                    {rawUpdated ? formatAuditDate(rawUpdated) : formatAuditDate(rawCreated)}
+                  </div>
+                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>✏️</span> {updatedBy}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* DRAWER FOOTER ACTIONS */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>

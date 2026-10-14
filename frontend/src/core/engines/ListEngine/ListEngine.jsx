@@ -408,13 +408,26 @@ export default function ListEngine({
   const [showColumnPopover, setShowColumnPopover] = useState(false);
   const scrollRef = useRef(null);
 
-  let allCols = moduleConfig.columns || [];
+  let allCols = [...(moduleConfig.columns || [])];
   const isTelephonyModule = moduleConfig?.id === 'telecalling' || moduleConfig?.moduleId === 'telecalling' || moduleConfig?.name === 'Phone System';
   if (isTelephonyModule && !allCols.some(c => c.id === 'actions' || c.fieldKey === 'actions')) {
     allCols = [
       ...allCols,
       { id: 'actions', label: 'Actions', visible: true, fieldKey: 'actions', width: '110px', align: 'center', sortOrder: 4 }
     ];
+  }
+
+  // Ensure Created Date column is universally present across all modules if not already defined
+  const hasDateCol = allCols.some(c => ['createdAt', 'created_at', 'callTime', 'date', 'appliedDate', 'timestamp'].includes(c.id || c.fieldKey));
+  if (!hasDateCol) {
+    allCols.push({
+      id: 'createdAt',
+      label: 'Created Date',
+      visible: true,
+      fieldKey: 'createdAt',
+      width: '165px',
+      sortOrder: 98
+    });
   }
 
   // Filter out columns hidden via metadata or user popover toggle (and exclude redundant 'id'/'displayId' since we render a dedicated first ID column)
@@ -441,6 +454,11 @@ export default function ListEngine({
     if (col.id === 'assignedTo') return 130;
     if (col.id === 'position' || col.id === 'department' || col.id === 'role') return 130;
     if (col.id === 'salary') return 120;
+    if (
+      col.id === 'createdAt' || col.fieldKey === 'createdAt' ||
+      col.id === 'created_at' || col.fieldKey === 'created_at' ||
+      col.id === 'appliedDate'
+    ) return 165;
     if (col.id === 'status' || col.id === 'stage' || col.id === 'disposition') return 140;
     if (col.id === 'actions' || col.fieldKey === 'actions') return 130;
     return 140;
@@ -990,12 +1008,52 @@ export default function ListEngine({
             );
           }
 
-          {/* CREATED AT / APPLIED DATE COLUMN */}
-          if (col.id === 'createdAt' || col.fieldKey === 'createdAt' || col.id === 'appliedDate') {
-            const dateVal = formatDate(record.createdAt || record.appliedDate);
+          {/* CREATED AT / APPLIED DATE / UNIVERSAL DATE COLUMN (TODAY / YESTERDAY / EXACT DATE + TIME) */}
+          if (
+            col.id === 'createdAt' || col.fieldKey === 'createdAt' ||
+            col.id === 'created_at' || col.fieldKey === 'created_at' ||
+            col.id === 'creationDate' || col.fieldKey === 'creationDate' ||
+            col.id === 'createdDate' || col.fieldKey === 'createdDate' ||
+            col.id === 'appliedDate' || col.fieldKey === 'appliedDate'
+          ) {
+            const rawTime = record.createdAt || record.created_at || record._createdAt || record.timestamp || record.appliedDate || record.callTime || record.date;
+            const formatted = formatCallDateTime(rawTime);
+            const author = record.createdBy || record.created_by || record.author || record.creator || null;
+            const fullIsoStr = rawTime ? (typeof rawTime === 'number' ? new Date(rawTime < 1e11 ? rawTime * 1000 : rawTime).toISOString() : String(rawTime)) : '';
+            const tooltip = [
+              `Created: ${formatted.fullLabel || formatted.dateStr}`,
+              author ? `Author: ${author}` : null,
+              fullIsoStr ? `Timestamp: ${fullIsoStr}` : null
+            ].filter(Boolean).join(' • ');
+
             return (
-              <td key={col.id} style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
-                📅 {dateVal}
+              <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }} title={tooltip}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '1px 6px',
+                    borderRadius: '5px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    background: formatted.isToday ? 'rgba(13, 148, 136, 0.1)' : (formatted.isYesterday ? 'rgba(217, 119, 6, 0.1)' : '#f1f5f9'),
+                    color: formatted.isToday ? '#0d9488' : (formatted.isYesterday ? '#d97706' : '#334155'),
+                    border: `1px solid ${formatted.isToday ? 'rgba(13, 148, 136, 0.25)' : (formatted.isYesterday ? 'rgba(217, 119, 6, 0.25)' : '#e2e8f0')}`
+                  }}>
+                    <span style={{
+                      display: 'inline-block',
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      background: formatted.isToday ? '#0d9488' : (formatted.isYesterday ? '#d97706' : '#64748b')
+                    }} />
+                    {formatted.isToday ? 'Today' : (formatted.isYesterday ? 'Yesterday' : formatted.dateStr)}
+                  </span>
+                  <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#64748b' }}>
+                    {formatted.timeStr}
+                  </span>
+                </div>
               </td>
             );
           }

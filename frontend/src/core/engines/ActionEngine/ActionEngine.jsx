@@ -51,8 +51,11 @@ export default function ActionEngine({
 
   const handleSaveRecord = async (formData) => {
     const now = new Date().toISOString();
+    const nowMs = Date.now();
     const entityName = LabelEngine.getEntityName(moduleConfig);
     const activeTenantId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || FirebaseCloudEngine.getTenantId();
+    const actorName = authUser?.name || authUser?.displayName || authUser?.email || 'System Admin';
+    const actorId = authUser?.id || authUser?.uid || 'system';
 
     const normalizedData = {
       ...formData,
@@ -148,7 +151,13 @@ export default function ActionEngine({
               id: saved.id,
               name: saved.name || normalizedData.name,
               createdAt: now,
+              _createdAt: nowMs,
+              createdBy: actorName,
+              createdById: actorId,
               updatedAt: now,
+              _updatedAt: nowMs,
+              updatedBy: actorName,
+              updatedById: actorId,
               archived: false,
               lifecycleStatus: 'ACTIVE',
               tenantId: numericTenantId
@@ -213,7 +222,13 @@ export default function ActionEngine({
               rawPhone: cleanDigits,
               _dedupKey: normPhone10 ? `phone_${normPhone10}` : (normalizedData.email ? `email_${normalizedData.email.trim().toLowerCase()}` : `id_${saved.id}`),
               createdAt: now,
+              _createdAt: nowMs,
+              createdBy: actorName,
+              createdById: actorId,
               updatedAt: now,
+              _updatedAt: nowMs,
+              updatedBy: actorName,
+              updatedById: actorId,
               archived: false,
               lifecycleStatus: 'ACTIVE',
               tenantId: numericTenantId
@@ -265,9 +280,15 @@ export default function ActionEngine({
             const newRec = {
               ...(typeof saved === 'object' ? saved : {}),
               ...normalizedData,
-              id: (saved && saved.id) ? String(saved.id) : (normalizedData.id || `rec_${Date.now()}`),
+              id: (saved && saved.id) ? String(saved.id) : (normalizedData.id || `rec_${nowMs}`),
               createdAt: now,
+              _createdAt: nowMs,
+              createdBy: actorName,
+              createdById: actorId,
               updatedAt: now,
+              _updatedAt: nowMs,
+              updatedBy: actorName,
+              updatedById: actorId,
               archived: false,
               lifecycleStatus: 'ACTIVE',
               tenantId: numericTenantId
@@ -285,13 +306,20 @@ export default function ActionEngine({
     }
 
     if (showEditModal && selectedRecord && selectedRecord.id) {
-      // EDIT WORKFLOW
+      // EDIT WORKFLOW - IMMUTABLE AUDIT STAMPING
       const updatedList = records.map(r => {
         if (r.id === selectedRecord.id) {
           return {
             ...r,
             ...normalizedData,
-            updatedAt: now
+            createdAt: r.createdAt || r.created_at || r._createdAt || now,
+            _createdAt: r._createdAt || (r.createdAt ? new Date(r.createdAt).getTime() : nowMs),
+            createdBy: r.createdBy || r.created_by || r.author || actorName,
+            createdById: r.createdById || r.created_by_id || actorId,
+            updatedAt: now,
+            _updatedAt: nowMs,
+            updatedBy: actorName,
+            updatedById: actorId
           };
         }
         return r;
@@ -351,7 +379,13 @@ export default function ActionEngine({
         id: nextSeqId,
         ...normalizedData,
         createdAt: now,
+        _createdAt: nowMs,
+        createdBy: actorName,
+        createdById: actorId,
         updatedAt: now,
+        _updatedAt: nowMs,
+        updatedBy: actorName,
+        updatedById: actorId,
         archived: false,
         lifecycleStatus: 'ACTIVE',
         tenantId: activeTenantId

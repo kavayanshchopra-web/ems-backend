@@ -12,6 +12,18 @@ import { ValidationEngine } from '../ValidationEngine';
 import { LabelEngine } from '../LabelEngine';
 import { getNextCategoryAssetTag } from '../../../services/atsStorageService';
 
+const AUDIT_FIELD_IDS = new Set([
+  'createdat', 'created_at', '_createdat', 'creationdate', 'createddate',
+  'createdby', 'created_by',
+  'updatedat', 'updated_at', '_updatedat', 'updatedate', 'updateddate',
+  'updatedby', 'updated_by'
+]);
+
+const isAuditField = (fieldId = '') => {
+  const norm = String(fieldId || '').toLowerCase().replace(/[^a-z]/g, '');
+  return AUDIT_FIELD_IDS.has(norm);
+};
+
 export default function UniversalModal({
   isOpen = false,
   onClose = () => {},
@@ -24,7 +36,13 @@ export default function UniversalModal({
   allPositions = []
 }) {
   const isCreate = mode === 'create';
-  const targetFields = (moduleConfig.fields || []).filter(f => !f.archived && !f.deleted && (isCreate ? f.showOnCreate !== false : f.showOnEdit !== false));
+  const targetFields = (moduleConfig.fields || []).filter(f => 
+    !f.archived && 
+    !f.deleted && 
+    !isAuditField(f.id) && 
+    !isAuditField(f.fieldKey) && 
+    (isCreate ? f.showOnCreate !== false : f.showOnEdit !== false)
+  );
 
   const [formData, setFormData] = useState({});
   const [formErrors, setFormErrors] = useState({});
