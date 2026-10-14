@@ -284,7 +284,7 @@ export default function BulkActionEngine({
     setSelectedIds([]);
     setIsBulkDeleting(false);
     setShowBulkDeleteModal(false);
-    showToast(`🗑️ Permanently deleted ${matchedRecords.length} ${entityNamePlural.toLowerCase()} from all databases.`, 'success');
+    showToast(`Permanently deleted ${matchedRecords.length} ${matchedRecords.length === 1 ? entityName.toLowerCase() : entityNamePlural.toLowerCase()}.`, 'success');
   };
 
   // 4. RESTORE SELECTED (For Archived View)
@@ -1242,7 +1242,7 @@ export default function BulkActionEngine({
                 disabled={isBulkDeleting}
                 style={{ background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)', color: '#ffffff', border: 'none', fontWeight: '700' }}
               >
-                {isBulkDeleting ? 'Deleting from Databases...' : `Permanent Delete (${selectedCount})`}
+                {isBulkDeleting ? 'Deleting...' : `Permanent Delete (${selectedCount})`}
               </Button>
             </div>
           </div>

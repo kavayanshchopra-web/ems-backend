@@ -141,7 +141,7 @@ export default function ArchivedModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#fff1f2', border: '1px solid #fecdd3', padding: '14px', borderRadius: '10px' }}>
             <AlertTriangle size={24} style={{ color: '#e11d48', flexShrink: 0 }} />
             <div style={{ fontSize: '13px', color: '#9f1239', lineHeight: '1.5' }}>
-              Are you sure you want to permanently delete <strong>{itemToDelete.itemTitle}</strong>? This will permanently remove the record from the database.
+              Are you sure you want to permanently delete <strong>{itemToDelete.itemTitle}</strong>? This action cannot be undone.
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>

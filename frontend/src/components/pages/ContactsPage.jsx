@@ -718,7 +718,7 @@ export default function ContactsPage({
       localStorage.removeItem(`omniflow_cached_contacts_${safeTenant}`);
     } catch (e) {}
 
-    if (showToast) showToast(`🗑️ Permanently deleted "${rec.name || 'contact'}" from database.`, 'info');
+    if (showToast) showToast(`Permanently deleted "${rec.name || 'contact'}".`, 'info');
   };
 
   const handlePermanentDeleteContact = async (itemOrId, skipConfirm = false) => {

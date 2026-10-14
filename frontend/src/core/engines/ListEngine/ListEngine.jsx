@@ -4035,7 +4035,7 @@ export default function ListEngine({
                 <strong style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: '#991b1b' }}>
                   Permanently delete "{itemToDeleteInList.name || itemToDeleteInList.title || itemToDeleteInList.custom_name || 'this record'}"?
                 </strong>
-                Are you sure you want to permanently delete this item from the vault and database? This action cannot be undone and cannot be recovered.
+                Are you sure you want to permanently delete this item? This action cannot be undone.
               </div>
             </div>
 
