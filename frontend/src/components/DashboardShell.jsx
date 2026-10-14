@@ -2519,32 +2519,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     otherDescription: ''
   });
   const [employeeExpenses, setEmployeeExpenses] = useState({});
-  // Global Toast Notification state
+  // Global Toast Notification state - Disabled per user request (no bottom notifications)
   const [toast, setToast] = useState({ message: '', type: 'success', visible: false });
-  const showToast = (message, type = 'success') => {
-    if (!message) return;
-    let msgStr = '';
-    if (typeof message === 'string') {
-      msgStr = message;
-    } else if (message instanceof Error) {
-      msgStr = message.message || String(message);
-    } else if (typeof message === 'object') {
-      if (message.nativeEvent || message.target || message.preventDefault) {
-        return; // React event object passed directly to onClick
-      }
-      try {
-        msgStr = JSON.stringify(message);
-      } catch (e) {
-        msgStr = String(message);
-      }
-    } else {
-      msgStr = String(message || '');
-    }
-    setToast({ message: msgStr, type: typeof type === 'string' ? type : 'info', visible: true });
-    setTimeout(() => {
-      setToast(prev => ({ ...prev, visible: false }));
-    }, 3000);
-  };
+  const showToast = () => {};
   // Multi-language Translation Support
   const [language, setLanguage] = useState('en'); // 'en', 'hi', 'hinglish'
   const translations = {
@@ -5029,7 +5006,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (cleanId) FirebaseCloudEngine.deleteRecord('recycle_bin', cleanId);
     if (cleanId) FirebaseCloudEngine.deleteRecord('crm_leads', cleanId);
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-    showToast(`Permanently purged record from vault.`, 'info');
   };
   const handleRestoreBinItem = async (itemOrId) => {
     if (!itemOrId) return;
