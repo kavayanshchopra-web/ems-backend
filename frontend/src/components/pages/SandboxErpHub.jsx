@@ -1,9 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' }) {
-  const [sessionKey] = useState(() => Date.now());
-  const LIVE_ERP_DOMAIN = `https://erp.employeemanagementsystems.com/web/autologin?t=${sessionKey}`;
+  const LIVE_ERP_DOMAIN = 'https://erp.employeemanagementsystems.com/web/autologin';
   const [isLoading, setIsLoading] = useState(true);
+
+  // Safety fallback: Never keep the loading spinner stuck for more than 2.5s
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <div
@@ -29,7 +36,8 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
             alignItems: 'center',
             justifyContent: 'center',
             gap: '12px',
-            zIndex: 5
+            zIndex: 5,
+            transition: 'opacity 0.3s ease'
           }}
         >
           <div
@@ -55,7 +63,6 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
       )}
 
       <iframe
-        key={sessionKey}
         src={LIVE_ERP_DOMAIN}
         title="EMS Enterprise Workspace"
         onLoad={() => setIsLoading(false)}

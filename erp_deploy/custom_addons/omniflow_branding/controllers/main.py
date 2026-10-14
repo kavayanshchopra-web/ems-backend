@@ -8,11 +8,9 @@ from contextlib import ExitStack
 class EMSAutoLoginController(Home):
     @http.route(['/web/autologin', '/ems/login'], type='http', auth='none', csrf=False)
     def ems_autologin(self, db='omniflow_erp', **kw):
-        """Zero-login bypass for seamless EMS embedding - Native Odoo 19 Engine"""
-        target = kw.get('redirect', '/web')
+        """Zero-login direct rendering for seamless EMS embedding - Native Odoo 19"""
         if not db:
             db = 'omniflow_erp'
-
         request.session.db = db
 
         # 1. Native Odoo 19 Session Authentication
@@ -31,18 +29,12 @@ class EMSAutoLoginController(Home):
                         if auth_info and auth_info.get('uid'):
                             request.session.db = db
                             request._save_session(env)
-                            res = request.redirect(target)
+
+                            # Directly render Odoo webclient without 303 redirect
                             try:
-                                res.set_cookie(
-                                    'session_id', request.session.sid,
-                                    max_age=90 * 86400,
-                                    httponly=True,
-                                    samesite='None',
-                                    secure=True
-                                )
+                                return self.web_client(**kw)
                             except Exception:
-                                pass
-                            return res
+                                return request.redirect('/odoo')
                     except Exception:
                         continue
         except Exception:
@@ -60,19 +52,11 @@ class EMSAutoLoginController(Home):
                     if hasattr(user, '_compute_session_token'):
                         request.session.session_token = user._compute_session_token(request.session.sid)
                     request._save_session(env)
-                    res = request.redirect(target)
                     try:
-                        res.set_cookie(
-                            'session_id', request.session.sid,
-                            max_age=90 * 86400,
-                            httponly=True,
-                            samesite='None',
-                            secure=True
-                        )
+                        return self.web_client(**kw)
                     except Exception:
-                        pass
-                    return res
+                        return request.redirect('/odoo')
         except Exception:
             pass
 
-        return request.redirect(target)
+        return request.redirect('/odoo')
