@@ -43,16 +43,12 @@
                     display: none !important;
                 }
 
-                /* Clean Login Screen: Completely eliminate Manage Databases, Passkeys and Placeholders */
+                /* Clean Login Screen: Remove unwanted database manager and passkey links */
                 a[href*="database/manager"],
                 a[href*="database/selector"],
                 a[href*="passkey"],
-                button:has([class*="passkey"]),
-                div:has(> a[href*="database/manager"]),
-                div:has(> a[href*="passkey"]),
                 .o_footer_copyright,
-                .oe_footer,
-                p:has(> a[href*="database/manager"]) {
+                .oe_footer {
                     display: none !important;
                 }
 
