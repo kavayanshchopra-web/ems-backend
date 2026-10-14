@@ -292,12 +292,14 @@ export default function UniversalConditionBuilder({
             const fieldOpts = getFieldOptions(currentField);
             const needsNoValue = cond.operator === 'has_value' || cond.operator === 'is_empty' || cond.operator === 'today' || cond.operator === 'yesterday' || cond.operator === 'last_7_days' || cond.operator === 'this_month';
 
+            const isDateField = currentField?.type === 'date' || currentField?.type === 'datetime' || ['exact_date', 'before', 'after'].includes(cond.operator);
+
             return (
               <div
                 key={cond.id || idx}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: needsNoValue ? '130px 140px 30px' : '120px 120px 1fr 30px',
+                  gridTemplateColumns: needsNoValue ? '1fr 1fr 30px' : '120px 120px 1fr 30px',
                   gap: '6px',
                   alignItems: 'center',
                   background: '#ffffff',
@@ -371,7 +373,7 @@ export default function UniversalConditionBuilder({
                     </select>
                   ) : (
                     <input
-                      type={currentField?.type === 'date' || cond.operator.includes('date') ? 'date' : (currentField?.type === 'number' ? 'number' : 'text')}
+                      type={isDateField ? 'date' : (currentField?.type === 'number' ? 'number' : 'text')}
                       value={cond.value || ''}
                       onChange={(e) => handleUpdateCondition(idx, 'value', e.target.value)}
                       placeholder={cond.operator === 'ends_with' ? 'e.g. @gmail.com' : 'Enter value...'}

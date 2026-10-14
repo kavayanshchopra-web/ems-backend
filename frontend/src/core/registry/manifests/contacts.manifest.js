@@ -64,7 +64,8 @@ export const CONTACTS_MANIFEST = {
     { id: 'status', label: 'Lead Stage', type: 'dropdown', optionsSource: 'crm_stages', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true },
     { id: 'source', label: 'Lead Source', type: 'dropdown', options: ['External CRM', 'WhatsApp Inbound', 'SIM Dialer', 'Manual Entry', 'Website'], systemField: true, required: false, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true },
     { id: 'assignedTo', label: 'Assigned Agent', type: 'dropdown', optionsSource: 'employees', systemField: true, required: false, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'Select assigned agent' },
-    { id: 'notes', label: 'Contact Notes', type: 'textarea', systemField: true, required: false, searchable: true, filterable: false, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. Client interested in CRM Enterprise plan' }
+    { id: 'notes', label: 'Contact Notes', type: 'textarea', systemField: true, required: false, searchable: true, filterable: false, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. Client interested in CRM Enterprise plan' },
+    { id: 'createdAt', label: 'Created Date', type: 'date', systemField: true, required: false, searchable: false, filterable: true, sortable: true, showOnCreate: false, showOnEdit: false, showOnView: true }
   ],
   
   summaryWidgets: [

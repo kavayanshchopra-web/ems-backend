@@ -26,8 +26,26 @@ export class FilterEngine {
    * @returns {Array<Object>}
    */
   static getFilterableFields(moduleConfig) {
-    if (!moduleConfig || !Array.isArray(moduleConfig.fields)) return [];
-    return moduleConfig.fields.filter(f => !f.archived && !f.deleted && (f.filterable === true || (f.filterable !== false && (f.systemField || ['dropdown', 'radio', 'multiselect', 'status', 'tag'].includes(f.type)))));
+    if (!moduleConfig) return [];
+    const fields = Array.isArray(moduleConfig.fields) 
+      ? moduleConfig.fields.filter(f => !f.archived && !f.deleted && (f.filterable === true || (f.filterable !== false && (f.systemField || ['dropdown', 'radio', 'multiselect', 'status', 'tag', 'date'].includes(f.type)))))
+      : [];
+
+    const hasCreatedAt = fields.some(f => ['createdAt', 'created_at', 'callTime', 'date', 'creationDate'].includes(f.id));
+    if (!hasCreatedAt) {
+      return [
+        ...fields,
+        {
+          id: 'createdAt',
+          label: 'Created Date',
+          type: 'date',
+          systemField: true,
+          filterable: true,
+          sortable: true
+        }
+      ];
+    }
+    return fields;
   }
 
   /**
@@ -36,8 +54,26 @@ export class FilterEngine {
    * @returns {Array<Object>}
    */
   static getAllConditionFields(moduleConfig) {
-    if (!moduleConfig || !Array.isArray(moduleConfig.fields)) return [];
-    return moduleConfig.fields.filter(f => !f.archived && !f.deleted && f.type !== 'hidden');
+    if (!moduleConfig) return [];
+    const fields = Array.isArray(moduleConfig.fields) 
+      ? moduleConfig.fields.filter(f => !f.archived && !f.deleted && f.type !== 'hidden')
+      : [];
+
+    const hasCreatedAt = fields.some(f => ['createdAt', 'created_at', 'callTime', 'date', 'creationDate'].includes(f.id));
+    if (!hasCreatedAt) {
+      return [
+        ...fields,
+        {
+          id: 'createdAt',
+          label: 'Created Date',
+          type: 'date',
+          systemField: true,
+          filterable: true,
+          sortable: true
+        }
+      ];
+    }
+    return fields;
   }
 
   /**
@@ -176,7 +212,9 @@ export class FilterEngine {
       else if (fieldId === 'email') rawVal = record.emailAddress;
       else if (fieldId === 'status') rawVal = record.stage || record.pipelineStage;
       else if (fieldId === 'assignedTo') rawVal = record.agentName || record.employee || record.assigned_to;
-      else if (fieldId === 'createdAt') rawVal = record._createdAt || record.callTime || record.created_at;
+      else if (fieldId === 'createdAt' || fieldId === 'created_at' || fieldId === 'creationDate' || fieldId === 'createdDate') {
+        rawVal = record._createdAt || record.createdAt || record.created_at || record.callTime || record.timestamp || record.date;
+      }
     }
 
     const valStr = getValString(rawVal).toLowerCase().trim();
@@ -259,7 +297,33 @@ export class FilterEngine {
       case 'exact_date':
       case 'before':
       case 'after': {
-        const itemTime = Number(record._createdAt || (rawVal ? new Date(rawVal).getTime() : 0)) || 0;
+        let itemTime = 0;
+        if (typeof rawVal === 'number' && rawVal > 0) {
+          itemTime = rawVal < 1e11 ? rawVal * 1000 : rawVal;
+        } else if (rawVal) {
+          const parsed = Date.parse(rawVal);
+          if (!isNaN(parsed) && parsed > 0) itemTime = parsed;
+        }
+        if (!itemTime && record._createdAt) {
+          const n = Number(record._createdAt);
+          itemTime = n < 1e11 ? n * 1000 : n;
+        }
+        if (!itemTime && record.createdAt) {
+          const parsed = Date.parse(record.createdAt);
+          if (!isNaN(parsed) && parsed > 0) itemTime = parsed;
+        }
+        if (!itemTime && record.created_at) {
+          const parsed = Date.parse(record.created_at);
+          if (!isNaN(parsed) && parsed > 0) itemTime = parsed;
+        }
+        if (!itemTime && record.callTime) {
+          const parsed = Date.parse(record.callTime);
+          if (!isNaN(parsed) && parsed > 0) itemTime = parsed;
+        }
+        if (!itemTime && record.timestamp) {
+          const parsed = typeof record.timestamp === 'number' ? (record.timestamp < 1e11 ? record.timestamp * 1000 : record.timestamp) : Date.parse(record.timestamp);
+          if (!isNaN(parsed) && parsed > 0) itemTime = parsed;
+        }
         if (itemTime <= 0) return false;
 
         const now = new Date();
