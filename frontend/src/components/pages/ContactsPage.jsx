@@ -10,7 +10,9 @@ import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 import TenantStorage from '../../core/services/TenantStorage';
 import { db } from '../../firebase';
 import { collection, onSnapshot, doc, deleteDoc, query, where } from 'firebase/firestore';
-import { RefreshCw, Zap, Trash2 } from 'lucide-react';
+import { RefreshCw, Zap, Trash2, AlertTriangle } from 'lucide-react';
+import Modal from '../ui/Modal';
+import Button from '../ui/Button';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone } from '../../core/utils/phoneUtils';
 import { SupabaseSandboxService, isSandboxEnvironment } from '../../core/services/supabaseSandboxService';
 import GhlOAuthService from '../../core/services/ghlOAuthService';
@@ -51,6 +53,9 @@ export default function ContactsPage({
 
   const [companyEmployees, setCompanyEmployees] = useState([]);
   const [archivedContacts, setArchivedContacts] = useState([]);
+  const [contactToDelete, setContactToDelete] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeletingContact, setIsDeletingContact] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -569,22 +574,6 @@ export default function ContactsPage({
         return merged;
       });
     }
-
-    if (Array.isArray(newRecords)) {
-      const safeTenant = Number(companyId) || 1;
-      newRecords.forEach(rec => {
-        if (rec && rec.id) {
-          if (isSandboxEnvironment()) {
-            SupabaseSandboxService.createContact(rec, safeTenant).catch(e => console.warn('[Sandbox] Contact sync notice:', e));
-          } else {
-            FirebaseCloudEngine.saveRecord('contacts', rec, companyId);
-          }
-          if (rec.source !== 'GoHighLevel' && !String(rec.id).startsWith('ghl_')) {
-            GhlSyncBridge.pushSingleContactAuto(safeTenant, rec).catch(() => {});
-          }
-        }
-      });
-    }
   };
 
   // Soft Delete / Move to Archive (Archiving in Supabase PostgreSQL, NOT deleting)
@@ -672,31 +661,20 @@ export default function ContactsPage({
   };
 
   // Permanent Delete Contact from Database (PostgreSQL + SQLite + Local Storage)
-  const handlePermanentDeleteContact = async (itemOrId) => {
-    const rawTargetId = typeof itemOrId === 'object' ? (itemOrId.originalId || itemOrId.id || itemOrId.recycleBinId) : itemOrId;
-    if (!rawTargetId) return;
-
-    const rec = (internalRecords || []).find(r => 
-      r && (String(r.id) === String(rawTargetId) || String(r.displayId) === String(rawTargetId) || String(r.originalId) === String(rawTargetId))
-    ) || (archivedContacts || []).find(r => 
-      r && (String(r.id) === String(rawTargetId) || String(r.displayId) === String(rawTargetId) || String(r.originalId) === String(rawTargetId))
-    ) || (typeof itemOrId === 'object' ? itemOrId : { id: rawTargetId });
-
-    const confirmed = window.confirm(`⚠️ Are you sure you want to permanently delete "${rec.name || rec.phone || rec.email || 'this contact'}"? This action cannot be undone.`);
-    if (!confirmed) return;
-
+  const executePermanentDeleteContact = async (rec) => {
+    if (!rec) return;
     const safeTenant = Number(companyId) || 1;
-    const trueId = rec.id || rawTargetId;
+    const trueId = rec.id || rec.originalId;
     const email = rec.email;
     const phone = rec.phone || rec.rawPhone;
 
     // 1. Delete from Supabase PostgreSQL across both sandbox and production
-    await SupabaseSandboxService.deleteContact(trueId, safeTenant, phone, email);
+    await SupabaseSandboxService.deleteContact(trueId, safeTenant, phone, email).catch(console.error);
     if (rec.ghlContactId) {
-      await SupabaseSandboxService.deleteContact(`ghl_${rec.ghlContactId}`, safeTenant);
+      await SupabaseSandboxService.deleteContact(`ghl_${rec.ghlContactId}`, safeTenant).catch(console.error);
     }
     if (rec.originalId && rec.originalId !== trueId) {
-      await SupabaseSandboxService.deleteContact(rec.originalId, safeTenant);
+      await SupabaseSandboxService.deleteContact(rec.originalId, safeTenant).catch(console.error);
     }
 
     // 2. Delete from Firestore and SQLite
@@ -715,15 +693,15 @@ export default function ContactsPage({
 
     // 3. Clear from all local states and caches
     if (typeof handlePermanentDeleteBinItem === 'function') {
-      handlePermanentDeleteBinItem(itemOrId);
+      handlePermanentDeleteBinItem(rec.id || trueId, rec.name || rec.title);
     }
     setArchivedContacts(prev => (prev || []).filter(c => String(c.id) !== String(trueId) && (!email || c.email !== email) && (!phone || c.phone !== phone)));
     setInternalRecords(prev => (prev || []).filter(r => 
-      r && String(r.id) !== String(trueId) && String(r.displayId) !== String(rawTargetId) && (!email || r.email !== email) && (!phone || r.phone !== phone)
+      r && String(r.id) !== String(trueId) && String(r.displayId) !== String(trueId) && (!email || r.email !== email) && (!phone || r.phone !== phone)
     ));
     if (typeof setPropContacts === 'function') {
       setPropContacts(prev => (prev || []).filter(r => 
-        r && String(r.id) !== String(trueId) && String(r.displayId) !== String(rawTargetId) && (!email || r.email !== email) && (!phone || r.phone !== phone)
+        r && String(r.id) !== String(trueId) && String(r.displayId) !== String(trueId) && (!email || r.email !== email) && (!phone || r.phone !== phone)
       ));
     }
     TenantStorage.setItem('contacts', (internalRecords || []).filter(r => r.id !== trueId && (!email || r.email !== email)), safeTenant);
@@ -731,7 +709,40 @@ export default function ContactsPage({
       localStorage.removeItem(`omniflow_cached_contacts_${safeTenant}`);
     } catch (e) {}
 
-    if (showToast) showToast('🗑️ Permanently deleted contact record from database.', 'info');
+    if (showToast) showToast(`🗑️ Permanently deleted "${rec.name || 'contact'}" from database.`, 'info');
+  };
+
+  const handlePermanentDeleteContact = async (itemOrId, skipConfirm = false) => {
+    const rawTargetId = typeof itemOrId === 'object' ? (itemOrId.originalId || itemOrId.id || itemOrId.recycleBinId) : itemOrId;
+    if (!rawTargetId) return;
+
+    const rec = (internalRecords || []).find(r => 
+      r && (String(r.id) === String(rawTargetId) || String(r.displayId) === String(rawTargetId) || String(r.originalId) === String(rawTargetId))
+    ) || (archivedContacts || []).find(r => 
+      r && (String(r.id) === String(rawTargetId) || String(r.displayId) === String(rawTargetId) || String(r.originalId) === String(rawTargetId))
+    ) || (typeof itemOrId === 'object' ? itemOrId : { id: rawTargetId });
+
+    if (skipConfirm) {
+      await executePermanentDeleteContact(rec);
+      return;
+    }
+
+    setContactToDelete(rec);
+    setShowDeleteModal(true);
+  };
+
+  const confirmExecuteDeleteContact = async () => {
+    if (!contactToDelete) return;
+    setIsDeletingContact(true);
+    try {
+      await executePermanentDeleteContact(contactToDelete);
+    } catch (e) {
+      console.error('Delete contact error:', e);
+    } finally {
+      setIsDeletingContact(false);
+      setShowDeleteModal(false);
+      setContactToDelete(null);
+    }
   };
 
   // Unified Archived items merging Supabase Archived Contacts + TrashVault
@@ -982,6 +993,60 @@ export default function ContactsPage({
         onManageStages={onManageStages}
         onOpenChatWithLead={onOpenChatWithLead}
       />
+
+      {/* THEMED PERMANENT DELETE CONFIRMATION MODAL */}
+      {showDeleteModal && contactToDelete && (
+        <Modal
+          isOpen={showDeleteModal}
+          onClose={() => !isDeletingContact && setShowDeleteModal(false)}
+          title="🗑️ Confirm Permanent Delete"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '12px',
+                background: '#fff1f2',
+                border: '1px solid #fecdd3',
+                padding: '14px',
+                borderRadius: '8px',
+                color: '#9f1239'
+              }}
+            >
+              <AlertTriangle size={22} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '13px', lineHeight: '1.5', color: '#1e293b' }}>
+                <strong style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: '#991b1b' }}>
+                  Permanently delete "{contactToDelete.name || contactToDelete.phone || 'this contact'}"?
+                </strong>
+                Are you sure you want to permanently delete this contact from the database? This will permanently erase the data across all databases (Backend SQLite, PostgreSQL & Cloud). <strong>This action cannot be undone and will not be moved to Archive.</strong>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeletingContact}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                variant="primary"
+                size="md"
+                icon={<Trash2 size={14} />}
+                onClick={confirmExecuteDeleteContact}
+                disabled={isDeletingContact}
+                style={{ background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)', color: '#ffffff', border: 'none', fontWeight: '700' }}
+              >
+                {isDeletingContact ? 'Deleting...' : 'Permanent Delete'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

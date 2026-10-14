@@ -4,13 +4,14 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Eye, Edit2, Archive, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Trash2, Columns, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Eye, Edit2, Archive, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Trash2, Columns, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertTriangle } from 'lucide-react';
 import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { LabelEngine } from '../LabelEngine';
 import FirebaseCloudEngine from '../FirebaseCloudEngine';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import EmptyState from '../../../components/ui/EmptyState';
+import Modal from '../../../components/ui/Modal';
 import BulkActionEngine from '../BulkActionEngine/BulkActionEngine';
 import ColumnManagerPopover from './ColumnManagerPopover';
 import { formatCandidateId } from '../../../services/atsStorageService';
@@ -183,6 +184,7 @@ export default function ListEngine({
   const [localCurrentPage, setLocalCurrentPage] = useState(1);
   const [localPageSize, setLocalPageSize] = useState(25);
   const [localHiddenColIds, setLocalHiddenColIds] = useState([]);
+  const [itemToDeleteInList, setItemToDeleteInList] = useState(null);
 
   const currentPage = propOnPageChange ? propCurrentPage : localCurrentPage;
   const setCurrentPage = propOnPageChange || setLocalCurrentPage;
@@ -1498,14 +1500,7 @@ export default function ListEngine({
                 title="Permanent Delete"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (window.confirm(`Permanently delete "${recordName}"? This action cannot be undone.`)) {
-                    const targetId = record.recycleBinId || record.id;
-                    if (typeof handlePermanentDeleteBinItem === 'function') {
-                      handlePermanentDeleteBinItem(targetId, recordName);
-                    } else if (typeof softDeleteRecord === 'function') {
-                      softDeleteRecord(targetId);
-                    }
-                  }
+                  setItemToDeleteInList(record);
                 }}
                 style={{ padding: '3px 8px', fontSize: '10.5px', borderRadius: '5px', border: '1px solid #fecdd3', background: '#fff1f2', color: '#e11d48', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
               >
@@ -4014,6 +4009,67 @@ export default function ListEngine({
           </div>
         )}
       </div>
+
+      {/* ARCHIVED ROW THEMED PERMANENT DELETE MODAL */}
+      {itemToDeleteInList && (
+        <Modal
+          isOpen={Boolean(itemToDeleteInList)}
+          onClose={() => setItemToDeleteInList(null)}
+          title="🗑️ Confirm Permanent Delete"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '12px',
+                background: '#fff1f2',
+                border: '1px solid #fecdd3',
+                padding: '14px',
+                borderRadius: '8px',
+                color: '#9f1239'
+              }}
+            >
+              <AlertTriangle size={22} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '13px', lineHeight: '1.5', color: '#1e293b' }}>
+                <strong style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: '#991b1b' }}>
+                  Permanently delete "{itemToDeleteInList.name || itemToDeleteInList.title || itemToDeleteInList.custom_name || 'this record'}"?
+                </strong>
+                Are you sure you want to permanently delete this item from the vault and database? This action cannot be undone and cannot be recovered.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => setItemToDeleteInList(null)}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                variant="primary"
+                size="md"
+                icon={<Trash2 size={14} />}
+                onClick={() => {
+                  const targetId = itemToDeleteInList.recycleBinId || itemToDeleteInList.id;
+                  const targetName = itemToDeleteInList.name || itemToDeleteInList.title;
+                  if (typeof handlePermanentDeleteBinItem === 'function') {
+                    handlePermanentDeleteBinItem(targetId, targetName, true);
+                  } else if (typeof softDeleteRecord === 'function') {
+                    softDeleteRecord(targetId);
+                  }
+                  setItemToDeleteInList(null);
+                }}
+                style={{ background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)', color: '#ffffff', border: 'none', fontWeight: '700' }}
+              >
+                Permanent Delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

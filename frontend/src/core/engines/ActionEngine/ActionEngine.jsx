@@ -219,12 +219,16 @@ export default function ActionEngine({
               phone: cleanDigits || normalizedData.phone
             }, numericTenantId);
 
+            const savedObj = (saved && typeof saved === 'object' && !Array.isArray(saved)) ? saved : (Array.isArray(saved) ? (saved[0] || {}) : {});
+            const safeContactId = savedObj.id || normalizedData.id || `con_${Date.now()}`;
+
             const newRec = {
-              ...saved,
+              ...savedObj,
               ...normalizedData,
+              id: safeContactId,
               phone: formattedPhone,
               rawPhone: cleanDigits,
-              _dedupKey: normPhone10 ? `phone_${normPhone10}` : (normalizedData.email ? `email_${normalizedData.email.trim().toLowerCase()}` : `id_${saved.id}`),
+              _dedupKey: normPhone10 ? `phone_${normPhone10}` : (normalizedData.email ? `email_${normalizedData.email.trim().toLowerCase()}` : `id_${safeContactId}`),
               createdAt: now,
               _createdAt: nowMs,
               createdBy: actorName,
@@ -651,7 +655,7 @@ export default function ActionEngine({
 
       // 5. Parent handlePermanentDeleteBinItem callback (if provided)
       if (typeof handlePermanentDeleteBinItem === 'function') {
-        handlePermanentDeleteBinItem(record.id, nameStr);
+        handlePermanentDeleteBinItem(record.id, nameStr, true);
       }
 
       // 6. Local State update: remove from active records list

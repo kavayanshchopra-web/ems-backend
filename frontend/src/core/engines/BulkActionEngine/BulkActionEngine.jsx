@@ -48,7 +48,8 @@ export default function BulkActionEngine({
   activePipelineStages = [],
   authUser = null
 }) {
-  const [showDeleteGovernanceModal, setShowDeleteGovernanceModal] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showStageModal, setShowStageModal] = useState(false);
@@ -211,7 +212,7 @@ export default function BulkActionEngine({
 
   // 3B. PERMANENT DELETE SELECTED (From Active View)
   const handleBulkActiveDelete = async () => {
-    if (!window.confirm(`⚠️ Permanently delete ${selectedCount} ${entityNamePlural.toLowerCase()} from the database? This action cannot be undone.`)) return;
+    setIsBulkDeleting(true);
 
     const idsSet = new Set(selectedIds || []);
     const activeTenant = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 1;
@@ -271,7 +272,7 @@ export default function BulkActionEngine({
     // 5. Parent handlePermanentDeleteBinItem callback (if provided)
     if (typeof handlePermanentDeleteBinItem === 'function') {
       matchedRecords.forEach(r => {
-        handlePermanentDeleteBinItem(r.id || r.originalId, r.name || r.title);
+        handlePermanentDeleteBinItem(r.id || r.originalId, r.name || r.title, true);
       });
     }
 
@@ -280,6 +281,8 @@ export default function BulkActionEngine({
     );
     setRecords(remaining);
     setSelectedIds([]);
+    setIsBulkDeleting(false);
+    setShowBulkDeleteModal(false);
     showToast(`🗑️ Permanently deleted ${matchedRecords.length} ${entityNamePlural.toLowerCase()} from all databases.`, 'success');
   };
 
@@ -298,7 +301,7 @@ export default function BulkActionEngine({
 
   // 5. PERMANENT DELETE (For Archived View)
   const handleBulkPermanentDelete = () => {
-    if (!window.confirm(`⚠️ Permanently delete ${selectedCount} ${entityNamePlural.toLowerCase()}? This cannot be undone.`)) return;
+    setIsBulkDeleting(true);
 
     const idsSet = new Set(selectedIds || []);
     (selectedIds || []).forEach(id => {
@@ -315,6 +318,8 @@ export default function BulkActionEngine({
     const remaining = (records || []).filter(r => r && !idsSet.has(r.id) && !idsSet.has(r.recycleBinId));
     setRecords(remaining);
     setSelectedIds([]);
+    setIsBulkDeleting(false);
+    setShowBulkDeleteModal(false);
     showToast(`🗑️ Permanently removed ${selectedCount} ${entityNamePlural.toLowerCase()}`, 'success');
   };
 
@@ -788,20 +793,20 @@ export default function BulkActionEngine({
               variant="outline"
               size="sm"
               icon={<Trash2 size={13} />}
-              onClick={handleBulkPermanentDelete}
+              onClick={() => setShowBulkDeleteModal(true)}
               style={{ background: '#fff1f2', color: '#fca5a5', borderColor: '#ef4444', fontSize: '11px', padding: '4px 10px' }}
             >
               Permanent Delete ({selectedCount})
             </Button>
           )}
 
-          {/* DELETE BUTTON (ACTIVE VIEW GOVERNANCE) */}
+          {/* DELETE BUTTON (ACTIVE VIEW PERMANENT DELETE) */}
           {!isArchivedView && bulkConfig.delete && canManage && (
             <Button
               variant="outline"
               size="sm"
               icon={<Trash2 size={13} />}
-              onClick={() => setShowDeleteGovernanceModal(true)}
+              onClick={() => setShowBulkDeleteModal(true)}
               style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5', borderColor: '#ef4444', fontSize: '11px', padding: '4px 10px' }}
             >
               Delete ({selectedCount})
@@ -1189,12 +1194,12 @@ export default function BulkActionEngine({
         </Modal>
       )}
 
-      {/* 5. ENTERPRISE DELETE GOVERNANCE MODAL */}
-      {showDeleteGovernanceModal && (
+      {/* 5. THEMED BULK PERMANENT DELETE CONFIRMATION MODAL */}
+      {showBulkDeleteModal && (
         <Modal
-          isOpen={showDeleteGovernanceModal}
-          onClose={() => setShowDeleteGovernanceModal(false)}
-          title="🛡️ Enterprise Data Protection Governance"
+          isOpen={showBulkDeleteModal}
+          onClose={() => !isBulkDeleting && setShowBulkDeleteModal(false)}
+          title={`🗑️ Permanently Delete (${selectedCount} ${entityNamePlural})`}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px' }}>
             <div
@@ -1209,12 +1214,12 @@ export default function BulkActionEngine({
                 color: '#9f1239'
               }}
             >
-              <ShieldAlert size={22} style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div style={{ fontSize: '13px', lineHeight: '1.5' }}>
-                <strong style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
-                  Permanent Deletion Is Disabled
+              <AlertTriangle size={22} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '13px', lineHeight: '1.5', color: '#1e293b' }}>
+                <strong style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: '#991b1b' }}>
+                  Permanently delete {selectedCount} {selectedCount === 1 ? entityName.toLowerCase() : entityNamePlural.toLowerCase()}?
                 </strong>
-                Permanent deletion is disabled to protect historical data. Archive the selected records instead.
+                Are you sure you want to permanently delete {selectedCount > 1 ? `these ${selectedCount} selected ${entityNamePlural.toLowerCase()}` : `this ${entityName.toLowerCase()}`}? This will permanently remove them from all databases (Backend SQLite, PostgreSQL & Cloud). <strong>This action cannot be undone and will not be moved to Archive.</strong>
               </div>
             </div>
 
@@ -1222,7 +1227,8 @@ export default function BulkActionEngine({
               <Button
                 variant="outline"
                 size="md"
-                onClick={() => setShowDeleteGovernanceModal(false)}
+                onClick={() => setShowBulkDeleteModal(false)}
+                disabled={isBulkDeleting}
               >
                 Cancel
               </Button>
@@ -1230,13 +1236,12 @@ export default function BulkActionEngine({
               <Button
                 variant="primary"
                 size="md"
-                icon={<Archive size={14} />}
-                onClick={() => {
-                  setShowDeleteGovernanceModal(false);
-                  handleBulkArchive();
-                }}
+                icon={<Trash2 size={14} />}
+                onClick={isArchivedView ? handleBulkPermanentDelete : handleBulkActiveDelete}
+                disabled={isBulkDeleting}
+                style={{ background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)', color: '#ffffff', border: 'none', fontWeight: '700' }}
               >
-                Archive Selected
+                {isBulkDeleting ? 'Deleting from Databases...' : `Permanent Delete (${selectedCount})`}
               </Button>
             </div>
           </div>
