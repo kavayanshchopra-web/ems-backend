@@ -239,10 +239,23 @@ export default function LayoutEngine({
   const isFilterActive = FilterEngine.isFilterActive(filterValues) || Boolean(searchQuery.trim());
 
   const handleFilterChange = (fieldId, val) => {
-    setFilterValues(prev => ({ ...prev, [fieldId]: val }));
+    if (typeof fieldId === 'object' && fieldId !== null) {
+      setFilterValues(prev => ({ ...prev, ...fieldId }));
+    } else {
+      setFilterValues(prev => ({ ...prev, [fieldId]: val }));
+    }
   };
 
-  const handleRemoveFilter = (fieldId) => {
+  const handleRemoveFilter = (fieldId, conditionIndex) => {
+    if (fieldId === '_conditions' && conditionIndex !== undefined) {
+      setFilterValues(prev => {
+        const nextConditions = Array.isArray(prev._conditions)
+          ? prev._conditions.filter((_, idx) => idx !== conditionIndex)
+          : [];
+        return { ...prev, _conditions: nextConditions };
+      });
+      return;
+    }
     setFilterValues(prev => ({ ...prev, [fieldId]: 'all' }));
   };
 

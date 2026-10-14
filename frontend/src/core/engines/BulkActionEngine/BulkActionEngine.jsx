@@ -666,18 +666,7 @@ export default function BulkActionEngine({
             </Button>
           )}
 
-          {/* PERMANENT DELETE BUTTON (ACTIVE VIEW) */}
-          {!isArchivedView && canManage && (
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<Trash2 size={13} />}
-              onClick={handleBulkActiveDelete}
-              style={{ background: '#fff1f2', color: '#e11d48', borderColor: '#fca5a5', fontSize: '11px', padding: '4px 10px', fontWeight: '700' }}
-            >
-              Delete ({selectedCount})
-            </Button>
-          )}
+
 
           {/* RESTORE BUTTON (ARCHIVED VIEW ONLY) */}
           {isArchivedView && canManage && (
