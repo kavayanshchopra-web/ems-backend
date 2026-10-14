@@ -1028,7 +1028,7 @@ export default function ContactsPage({
                 <strong style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: '#991b1b' }}>
                   Permanently delete "{contactToDelete.name || contactToDelete.phone || 'this contact'}"?
                 </strong>
-                Are you sure you want to permanently delete this contact from the database? This will permanently erase the data across all databases (Backend SQLite, PostgreSQL & Cloud). <strong>This action cannot be undone and will not be moved to Archive.</strong>
+                Are you sure you want to permanently delete this contact from the database?
               </div>
             </div>
 

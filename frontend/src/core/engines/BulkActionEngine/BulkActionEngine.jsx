@@ -1220,7 +1220,7 @@ export default function BulkActionEngine({
                 <strong style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: '#991b1b' }}>
                   Permanently delete {selectedCount} {selectedCount === 1 ? entityName.toLowerCase() : entityNamePlural.toLowerCase()}?
                 </strong>
-                Are you sure you want to permanently delete {selectedCount > 1 ? `these ${selectedCount} selected ${entityNamePlural.toLowerCase()}` : `this ${entityName.toLowerCase()}`}? This will permanently remove them from all databases (Backend SQLite, PostgreSQL & Cloud). <strong>This action cannot be undone and will not be moved to Archive.</strong>
+                Are you sure you want to permanently delete {selectedCount > 1 ? `these ${selectedCount} selected ${entityNamePlural.toLowerCase()}` : `this ${entityName.toLowerCase()}`}?
               </div>
             </div>
 

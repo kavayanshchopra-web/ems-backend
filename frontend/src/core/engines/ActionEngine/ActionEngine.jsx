@@ -823,7 +823,7 @@ export default function ActionEngine({
           }}
           onConfirm={handleExecutePermanentDelete}
           title={`Permanently Delete ${LabelEngine.getEntityName(moduleConfig)}`}
-          message={`Are you sure you want to permanently delete "${recordToPermanentlyDelete.name || recordToPermanentlyDelete.title || 'Record'}"? This will permanently remove it from all databases (Backend, PostgreSQL & Cloud). This action cannot be undone.`}
+          message={`Are you sure you want to permanently delete "${recordToPermanentlyDelete.name || recordToPermanentlyDelete.title || 'Record'}"? This action cannot be undone.`}
           confirmText={isDeleting ? "Deleting..." : "Permanent Delete"}
           cancelText="Cancel"
           isProcessing={isDeleting}
