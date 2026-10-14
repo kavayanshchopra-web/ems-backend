@@ -26,54 +26,80 @@ export class FilterEngine {
    * @returns {Array<Object>}
    */
   static getFilterableFields(moduleConfig) {
-    if (!moduleConfig) return [];
-    const fields = Array.isArray(moduleConfig.fields) 
-      ? moduleConfig.fields.filter(f => !f.archived && !f.deleted && (f.filterable === true || (f.filterable !== false && (f.systemField || ['dropdown', 'radio', 'multiselect', 'status', 'tag', 'date'].includes(f.type)))))
-      : [];
-
-    const hasCreatedAt = fields.some(f => ['createdAt', 'created_at', 'callTime', 'date', 'creationDate'].includes(f.id));
-    if (!hasCreatedAt) {
-      return [
-        ...fields,
-        {
-          id: 'createdAt',
-          label: 'Created Date',
-          type: 'date',
-          systemField: true,
-          filterable: true,
-          sortable: true
-        }
-      ];
-    }
-    return fields;
+    return this.getAllConditionFields(moduleConfig);
   }
 
   /**
    * Get all active fields available for the Advanced Condition Builder
+   * Automatically auto-discovers and unifies:
+   * 1. Schema fields (moduleConfig.fields)
+   * 2. Table view columns (moduleConfig.columns & defaultColumns)
+   * 3. Core system audit fields (Created Date, Updated Date, etc.)
    * @param {Object} moduleConfig 
    * @returns {Array<Object>}
    */
   static getAllConditionFields(moduleConfig) {
     if (!moduleConfig) return [];
-    const fields = Array.isArray(moduleConfig.fields) 
-      ? moduleConfig.fields.filter(f => !f.archived && !f.deleted && f.type !== 'hidden')
-      : [];
 
-    const hasCreatedAt = fields.some(f => ['createdAt', 'created_at', 'callTime', 'date', 'creationDate'].includes(f.id));
-    if (!hasCreatedAt) {
-      return [
-        ...fields,
-        {
-          id: 'createdAt',
-          label: 'Created Date',
-          type: 'date',
+    const fieldsMap = new Map();
+
+    // 1. Gather all explicit schema fields
+    (Array.isArray(moduleConfig.fields) ? moduleConfig.fields : []).forEach(f => {
+      if (f && f.id && !f.archived && !f.deleted && f.type !== 'hidden') {
+        fieldsMap.set(f.id, { ...f });
+      }
+    });
+
+    // 2. Auto-discover from table columns (so any column rendered in List view is automatically filterable)
+    const tableCols = [
+      ...(Array.isArray(moduleConfig.columns) ? moduleConfig.columns : []),
+      ...(Array.isArray(moduleConfig.defaultColumns) ? moduleConfig.defaultColumns : [])
+    ];
+
+    tableCols.forEach(col => {
+      if (!col) return;
+      const colId = col.fieldKey || col.id;
+      if (!colId || colId === 'actions' || colId === 'action' || colId === 'selection' || colId === '__select__') return;
+
+      if (!fieldsMap.has(colId)) {
+        let detectedType = col.type || 'text';
+        const lower = String(colId).toLowerCase();
+        if (lower.includes('date') || lower.includes('time') || lower === 'createdat' || lower === 'updatedat') {
+          detectedType = 'date';
+        } else if (lower.includes('phone') || lower.includes('mobile')) {
+          detectedType = 'phone';
+        } else if (lower.includes('email')) {
+          detectedType = 'email';
+        } else if (lower.includes('amount') || lower.includes('salary') || lower.includes('price') || lower.includes('cost')) {
+          detectedType = 'number';
+        } else if (lower.includes('status') || lower.includes('stage')) {
+          detectedType = 'status';
+        }
+
+        fieldsMap.set(colId, {
+          id: colId,
+          label: col.label || col.name || colId,
+          type: detectedType,
           systemField: true,
           filterable: true,
           sortable: true
-        }
-      ];
+        });
+      }
+    });
+
+    // 3. Ensure core audit timestamps are universally guaranteed
+    if (!fieldsMap.has('createdAt') && !fieldsMap.has('created_at')) {
+      fieldsMap.set('createdAt', {
+        id: 'createdAt',
+        label: 'Created Date',
+        type: 'date',
+        systemField: true,
+        filterable: true,
+        sortable: true
+      });
     }
-    return fields;
+
+    return Array.from(fieldsMap.values());
   }
 
   /**
