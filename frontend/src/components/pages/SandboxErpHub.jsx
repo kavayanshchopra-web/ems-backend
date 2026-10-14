@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 
 export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' }) {
-  const LIVE_ERP_DOMAIN = 'https://erp.employeemanagementsystems.com/web/autologin';
+  const [sessionKey] = useState(() => Date.now());
+  const LIVE_ERP_DOMAIN = `https://erp.employeemanagementsystems.com/web/autologin?t=${sessionKey}`;
   const [isLoading, setIsLoading] = useState(true);
 
   return (
@@ -54,6 +55,7 @@ export default function SandboxErpHub({ authUser, companyId, apiBase = '/api' })
       )}
 
       <iframe
+        key={sessionKey}
         src={LIVE_ERP_DOMAIN}
         title="EMS Enterprise Workspace"
         onLoad={() => setIsLoading(false)}
