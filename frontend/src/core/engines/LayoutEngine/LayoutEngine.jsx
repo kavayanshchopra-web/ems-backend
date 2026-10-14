@@ -438,6 +438,7 @@ export default function LayoutEngine({
         onSortChange={(key, dir) => { setSortKey(key); setSortDir(dir); }}
         canManage={canManage}
         softDeleteRecord={isArchivedView ? handlePermanentDeleteBinItem : softDeleteRecord}
+        handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
         handleRestoreBinItem={handleRestoreBinItem}
         showToast={showToast}
         isArchivedView={isArchivedView}

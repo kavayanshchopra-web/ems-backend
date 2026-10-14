@@ -52,6 +52,7 @@ export default function ViewEngine({
   canManage = true,
   softDeleteRecord = null,
   handleRestoreBinItem = null,
+  handlePermanentDeleteBinItem = null,
   showToast = () => {},
   isArchivedView = false,
   selectedRecord = null,
@@ -467,6 +468,7 @@ export default function ViewEngine({
       canManage={canManage}
       softDeleteRecord={softDeleteRecord}
       handleRestoreBinItem={handleRestoreBinItem}
+      handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
       showToast={showToast}
       isArchivedView={isArchivedView}
       selectedRecord={selectedRecord}

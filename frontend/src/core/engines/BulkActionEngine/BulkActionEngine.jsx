@@ -28,6 +28,7 @@ import FirebaseCloudEngine from '../FirebaseCloudEngine';
 import { SupabaseSandboxService, isSandboxEnvironment } from '../../services/supabaseSandboxService';
 import frontendWalletService from '../../services/universalWalletService';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../services/whatsAppTemplateService';
+import TrashVaultEngine from '../TrashVaultEngine';
 
 export default function BulkActionEngine({
   selectedIds = [],
@@ -38,6 +39,7 @@ export default function BulkActionEngine({
   moduleConfig = {},
   softDeleteRecord = null,
   handleRestoreBinItem = null,
+  handlePermanentDeleteBinItem = null,
   showToast = () => {},
   canManage = true,
   isArchivedView = false,
@@ -221,6 +223,26 @@ export default function BulkActionEngine({
 
     if (matchedRecords.length === 0) return;
 
+    const token = typeof window !== 'undefined' ? localStorage.getItem('omnilflow_token') : null;
+    const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+      ? 'http://localhost:5000/api'
+      : 'https://api.employeemanagementsystems.com/api';
+
+    // 1. Backend SQLite API Call for all matched items
+    for (const r of matchedRecords) {
+      const cleanId = String(r.id || r.displayId || r.originalId || '');
+      if (cleanId) {
+        fetch(`${API_URL}/contacts/${encodeURIComponent(cleanId)}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        }).catch(err => console.warn('SQLite purge contact error:', err.message));
+      }
+    }
+
+    // 2. PostgreSQL / Supabase
     if (isSandboxEnvironment()) {
       const dbIds = matchedRecords.map(r => r.id || r.originalId).filter(Boolean);
       await SupabaseSandboxService.bulkDeleteContacts(dbIds, numTenant).catch(() => {});
@@ -231,11 +253,26 @@ export default function BulkActionEngine({
       }
     }
 
-    // Call softDeleteRecord / parent delete for each to clean up states & storage
-    for (const r of matchedRecords) {
-      if (typeof softDeleteRecord === 'function') {
-        softDeleteRecord(r.id || r.displayId || r.originalId);
+    // 3. Firebase Cloud Engine
+    matchedRecords.forEach(r => {
+      const cleanId = r.id || r.displayId || r.originalId;
+      if (moduleConfig.moduleId && cleanId) {
+        FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId, cleanId);
       }
+    });
+
+    // 4. TrashVaultEngine: PURGE completely so it NEVER lands in Archive / Recycle Bin
+    matchedRecords.forEach(r => {
+      if (r.id) TrashVaultEngine.purgeItem('all', String(r.id));
+      if (r.displayId) TrashVaultEngine.purgeItem('all', String(r.displayId));
+      if (r.originalId) TrashVaultEngine.purgeItem('all', String(r.originalId));
+    });
+
+    // 5. Parent handlePermanentDeleteBinItem callback (if provided)
+    if (typeof handlePermanentDeleteBinItem === 'function') {
+      matchedRecords.forEach(r => {
+        handlePermanentDeleteBinItem(r.id || r.originalId, r.name || r.title);
+      });
     }
 
     const remaining = (records || []).filter(r => 
@@ -243,7 +280,7 @@ export default function BulkActionEngine({
     );
     setRecords(remaining);
     setSelectedIds([]);
-    showToast(`🗑️ Permanently deleted ${matchedRecords.length} ${entityNamePlural.toLowerCase()}`, 'success');
+    showToast(`🗑️ Permanently deleted ${matchedRecords.length} ${entityNamePlural.toLowerCase()} from all databases.`, 'success');
   };
 
   // 4. RESTORE SELECTED (For Archived View)
@@ -263,15 +300,18 @@ export default function BulkActionEngine({
   const handleBulkPermanentDelete = () => {
     if (!window.confirm(`⚠️ Permanently delete ${selectedCount} ${entityNamePlural.toLowerCase()}? This cannot be undone.`)) return;
 
-    if (typeof softDeleteRecord === 'function') {
-      (selectedIds || []).forEach(id => {
-        const rec = (records || []).find(r => r && (r.id === id || r.recycleBinId === id));
-        const trueId = rec?.recycleBinId || rec?.id || id;
-        softDeleteRecord(trueId);
-      });
-    }
-
     const idsSet = new Set(selectedIds || []);
+    (selectedIds || []).forEach(id => {
+      const rec = (records || []).find(r => r && (r.id === id || r.recycleBinId === id));
+      const trueId = rec?.recycleBinId || rec?.id || id;
+      TrashVaultEngine.purgeItem('all', String(trueId));
+      if (typeof handlePermanentDeleteBinItem === 'function') {
+        handlePermanentDeleteBinItem(trueId);
+      } else if (typeof softDeleteRecord === 'function') {
+        softDeleteRecord(trueId);
+      }
+    });
+
     const remaining = (records || []).filter(r => r && !idsSet.has(r.id) && !idsSet.has(r.recycleBinId));
     setRecords(remaining);
     setSelectedIds([]);

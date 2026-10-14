@@ -148,6 +148,7 @@ export default function ListEngine({
   canManage = true,
   softDeleteRecord = null,
   handleRestoreBinItem = null,
+  handlePermanentDeleteBinItem = null,
   showToast = () => {},
   isArchivedView = false,
   selectedRecord = null,
@@ -1498,8 +1499,11 @@ export default function ListEngine({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (window.confirm(`Permanently delete "${recordName}"? This action cannot be undone.`)) {
-                    if (typeof softDeleteRecord === 'function') {
-                      softDeleteRecord(record.recycleBinId || record.id);
+                    const targetId = record.recycleBinId || record.id;
+                    if (typeof handlePermanentDeleteBinItem === 'function') {
+                      handlePermanentDeleteBinItem(targetId, recordName);
+                    } else if (typeof softDeleteRecord === 'function') {
+                      softDeleteRecord(targetId);
                     }
                   }
                 }}
@@ -3148,6 +3152,7 @@ export default function ListEngine({
         moduleConfig={moduleConfig}
         softDeleteRecord={softDeleteRecord}
         handleRestoreBinItem={handleRestoreBinItem}
+        handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
         showToast={showToast}
         canManage={canManage}
         isArchivedView={isArchivedView}

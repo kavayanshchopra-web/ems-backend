@@ -12,6 +12,7 @@ import { LabelEngine } from '../LabelEngine';
 import { getNextSequentialId } from '../../../services/atsStorageService';
 
 import FirebaseCloudEngine from '../FirebaseCloudEngine';
+import TrashVaultEngine from '../TrashVaultEngine';
 import GhlSyncBridge from '../../services/ghlSyncBridge';
 import { AuditEngine } from '../AuditEngine/AuditEngine';
 import { db, doc, setDoc, createEmployeeAuthAccount } from '../../../firebase.js';
@@ -48,6 +49,9 @@ export default function ActionEngine({
   authUser = null
 }) {
   const [internalRecordToArchive, setInternalRecordToArchive] = useState(null);
+  const [showPermanentDeleteModal, setShowPermanentDeleteModal] = useState(false);
+  const [recordToPermanentlyDelete, setRecordToPermanentlyDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleSaveRecord = async (formData) => {
     const now = new Date().toISOString();
@@ -591,35 +595,92 @@ export default function ActionEngine({
     setShowEditModal(false);
   };
 
-  const handleDirectPermanentDelete = async (record) => {
+  const handleTriggerPermanentDeletePrompt = (record) => {
+    const target = record || selectedRecord;
+    if (!target) return;
+    setRecordToPermanentlyDelete(target);
+    setShowPermanentDeleteModal(true);
+  };
+
+  const handleExecutePermanentDelete = async () => {
+    const record = recordToPermanentlyDelete;
     if (!record) return;
+    setIsDeleting(true);
+
     const nameStr = record.name || record.title || 'Record';
     const entityName = LabelEngine.getEntityName(moduleConfig);
-
-    if (!window.confirm(`⚠️ Permanently delete ${entityName.toLowerCase()} "${nameStr}"? This action cannot be undone.`)) return;
-
     const numericTenantId = Number(authUser?.tenantId || authUser?.companyId || authUser?.tenant_id) || 1;
     const cleanMod = String(moduleConfig.moduleId || '').toLowerCase();
+    const cleanId = String(record.id || record.originalId || '');
 
-    if (isSandboxEnvironment()) {
-      await SupabaseSandboxService.deleteUniversalRecord(moduleConfig.moduleId, record.id, numericTenantId).catch(console.error);
-      if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
-        await SupabaseSandboxService.deleteContact(record.id, numericTenantId, record.phone, record.email).catch(console.error);
+    try {
+      // 1. Backend SQLite API Call (for CRM contacts & general records)
+      const token = typeof window !== 'undefined' ? localStorage.getItem('omnilflow_token') : null;
+      const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+        ? 'http://localhost:5000/api'
+        : 'https://api.employeemanagementsystems.com/api';
+
+      if (cleanId) {
+        await fetch(`${API_URL}/contacts/${encodeURIComponent(cleanId)}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        }).catch(err => console.warn('Backend DELETE contact error:', err.message));
       }
-    } else if (moduleConfig.moduleId && record.id) {
-      FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId, record.id);
+
+      // 2. PostgreSQL / Supabase
+      if (isSandboxEnvironment()) {
+        await SupabaseSandboxService.deleteUniversalRecord(moduleConfig.moduleId, record.id, numericTenantId).catch(console.error);
+        if (cleanMod === 'contacts' || cleanMod === 'crm_deals' || cleanMod === 'crm_leads') {
+          await SupabaseSandboxService.deleteContact(record.id, numericTenantId, record.phone, record.email).catch(console.error);
+        }
+      }
+
+      // 3. Firebase Cloud Engine
+      if (moduleConfig.moduleId && record.id) {
+        FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId, record.id);
+      }
+
+      // 4. TrashVaultEngine: PURGE completely so it NEVER appears in Recycle Bin or Archive
+      TrashVaultEngine.purgeItem('all', String(record.id));
+      if (record.originalId) {
+        TrashVaultEngine.purgeItem('all', String(record.originalId));
+      }
+
+      // 5. Parent handlePermanentDeleteBinItem callback (if provided)
+      if (typeof handlePermanentDeleteBinItem === 'function') {
+        handlePermanentDeleteBinItem(record.id, nameStr);
+      }
+
+      // 6. Local State update: remove from active records list
+      const updatedList = (records || []).filter(r => 
+        r && String(r.id) !== String(record.id) && String(r.id) !== String(record.originalId)
+      );
+      setRecords(updatedList);
+
+      // 7. System Audit Trail Logging
+      AuditEngine.logRecordDeleted(numericTenantId, moduleConfig.moduleId || 'contacts', record, authUser);
+
+      // 8. Event Broadcast
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
+          detail: { moduleId: moduleConfig.moduleId || 'contacts' }
+        }));
+      }
+
+      showToast(`🗑️ Permanently deleted ${entityName.toLowerCase()} "${nameStr}" from all databases.`, 'info');
+    } catch (err) {
+      console.error('Permanent delete error:', err);
+      showToast(`❌ Error deleting record: ${err.message}`, 'error');
+    } finally {
+      setIsDeleting(false);
+      setShowPermanentDeleteModal(false);
+      setRecordToPermanentlyDelete(null);
+      setShowDetailModal(false);
+      setShowEditModal(false);
     }
-
-    if (typeof softDeleteRecord === 'function') {
-      softDeleteRecord(record.id);
-    }
-
-    const updatedList = (records || []).filter(r => r && r.id !== record?.id);
-    setRecords(updatedList);
-
-    showToast(`🗑️ Permanently deleted ${entityName.toLowerCase()} "${nameStr}".`, 'info');
-    setShowDetailModal(false);
-    setShowEditModal(false);
   };
 
   const handleRestoreArchivedRecord = (item) => {
@@ -721,7 +782,7 @@ export default function ActionEngine({
           moduleConfig={moduleConfig}
           onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
           onArchiveRecord={handleTriggerArchivePrompt}
-          onDeleteRecord={handleDirectPermanentDelete}
+          onDeleteRecord={handleTriggerPermanentDeletePrompt}
           onMoveStage={handleMoveStage}
           canManage={canManage}
           systemDropdowns={systemDropdowns}
@@ -740,9 +801,28 @@ export default function ActionEngine({
           }}
           onConfirm={handleConfirmArchive}
           title={`Archive ${targetEntity}`}
-          message={`Are you sure you want to archive candidate "${targetName}"? Archived candidates can be restored later.`}
+          message={`Are you sure you want to archive ${targetEntity.toLowerCase()} "${targetName}"? It will be moved to the Archived Records / Recycle Bin, and can be restored back anytime.`}
           confirmText="Archive"
           cancelText="Cancel"
+        />
+      )}
+
+      {/* PERMANENT DELETE CONFIRMATION MODAL */}
+      {showPermanentDeleteModal && recordToPermanentlyDelete && (
+        <ConfirmationModal
+          isOpen={showPermanentDeleteModal}
+          onClose={() => {
+            if (!isDeleting) {
+              setShowPermanentDeleteModal(false);
+              setRecordToPermanentlyDelete(null);
+            }
+          }}
+          onConfirm={handleExecutePermanentDelete}
+          title={`Permanently Delete ${LabelEngine.getEntityName(moduleConfig)}`}
+          message={`Are you sure you want to permanently delete "${recordToPermanentlyDelete.name || recordToPermanentlyDelete.title || 'Record'}"? This will permanently remove it from all databases (Backend, PostgreSQL & Cloud). This action cannot be undone.`}
+          confirmText={isDeleting ? "Deleting..." : "Permanent Delete"}
+          cancelText="Cancel"
+          isProcessing={isDeleting}
         />
       )}
     </>
