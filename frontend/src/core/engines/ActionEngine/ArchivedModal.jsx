@@ -3,11 +3,11 @@
  * Displays archived module records with Restore and Permanent Delete actions
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import Modal from '../../../components/ui/Modal';
 import Button from '../../../components/ui/Button';
 import EmptyState from '../../../components/ui/EmptyState';
-import { RotateCcw, Trash2 } from 'lucide-react';
+import { RotateCcw, Trash2, AlertTriangle } from 'lucide-react';
 import { LabelEngine } from '../LabelEngine';
 
 const getValString = (val, fallback = '') => {
@@ -44,9 +44,11 @@ export default function ArchivedModal({
   onPermanentDeleteItem = () => {}
 }) {
   const entityName = LabelEngine.getEntityName(moduleConfig);
+  const [itemToDelete, setItemToDelete] = useState(null);
 
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={`Archived ${LabelEngine.getEntityNamePlural(moduleConfig)}`}
@@ -109,11 +111,7 @@ export default function ArchivedModal({
                     variant="outline"
                     size="sm"
                     icon={<Trash2 size={13} />}
-                    onClick={() => {
-                      if (window.confirm(`Permanently delete "${itemTitle}"? This action cannot be undone.`)) {
-                        onPermanentDeleteItem(item.id || item.originalId);
-                      }
-                    }}
+                    onClick={() => setItemToDelete({ item, itemTitle, itemId: item.id || item.originalId })}
                     style={{ background: '#fff1f2', color: '#e11d48', borderColor: '#fecdd3' }}
                   >
                     Permanent Delete
@@ -131,5 +129,38 @@ export default function ArchivedModal({
         </div>
       </div>
     </Modal>
+
+    {itemToDelete && (
+      <Modal
+        isOpen={true}
+        onClose={() => setItemToDelete(null)}
+        title="Confirm Permanent Deletion"
+        subtitle="This action cannot be undone."
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#fff1f2', border: '1px solid #fecdd3', padding: '14px', borderRadius: '10px' }}>
+            <AlertTriangle size={24} style={{ color: '#e11d48', flexShrink: 0 }} />
+            <div style={{ fontSize: '13px', color: '#9f1239', lineHeight: '1.5' }}>
+              Are you sure you want to permanently delete <strong>{itemToDelete.itemTitle}</strong>? This will permanently remove the record from the database.
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <Button variant="secondary" onClick={() => setItemToDelete(null)}>Cancel</Button>
+            <Button
+              variant="primary"
+              style={{ background: '#e11d48', borderColor: '#e11d48', color: '#fff' }}
+              onClick={() => {
+                const targetId = itemToDelete.itemId;
+                setItemToDelete(null);
+                onPermanentDeleteItem(targetId);
+              }}
+            >
+              Yes, Delete Permanently
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    )}
+  </>
   );
 }

@@ -111,16 +111,24 @@ export default function ContactsPage({
     return false;
   };
 
-  // Initialize records strictly scoped to active tenant and Model A role
+  // Initialize records strictly scoped to active tenant and Model A role (pure PostgreSQL)
   const [internalRecords, setInternalRecords] = useState(() => {
     let source = [];
     if (Array.isArray(propContacts) && propContacts.length > 0) {
       source = propContacts;
-    } else if (!isSandboxEnvironment()) {
-      source = TenantStorage.getItem('contacts', companyId, []) || [];
     }
     return (source || []).filter(isContactVisibleToUser);
   });
+
+  // Purge any stale localStorage caches on mount so PostgreSQL is 100% single source of truth
+  useEffect(() => {
+    try {
+      TenantStorage.removeItem('contacts', companyId);
+      localStorage.removeItem(`omniflow_cached_contacts_${companyId}`);
+      localStorage.removeItem(`contacts_cache_${companyId}`);
+      localStorage.removeItem(`omnilflow_contacts_${companyId}`);
+    } catch (e) {}
+  }, [companyId]);
 
   // Sync when propContacts arrives or updates from parent
   useEffect(() => {
@@ -244,17 +252,17 @@ export default function ContactsPage({
         phone: formattedPhone,
         email: cleanEmail,
         tags: Array.isArray(d.tags) ? d.tags.join(', ') : (d.tags || d.labels ? (Array.isArray(d.labels) ? d.labels.join(', ') : String(d.labels)) : ''),
-        status: d.status || d.stage || d.pipelineStage || 'New Leads',
+        status: d.status || d.stage || d.pipeline_stage || d.pipelineStage || 'New Leads',
         source: resolvedSource,
-        assignedTo: d.assignedTo || d.agentName || defaultManagerName,
+        assignedTo: d.assignedTo || d.assigned_to || d.agentName || defaultManagerName,
         ghlContactId: extractedGhlId,
         notes: rawNotes,
         dealValue: d.deal_value || d.dealValue || '',
         deal_value: d.deal_value || d.dealValue || '',
         customFields: d.custom_fields || d.customFields || {},
         custom_fields: d.custom_fields || d.customFields || {},
-        createdAt: d.createdAt || d._createdAt || d.lastMessageTime || new Date().toISOString(),
-        updatedAt: d.updatedAt || new Date().toISOString(),
+        createdAt: d.createdAt || d.created_at || d._createdAt || d.lastMessageTime || new Date().toISOString(),
+        updatedAt: d.updatedAt || d.updated_at || new Date().toISOString(),
         _dedupKey: dedupKey
       };
 
@@ -351,7 +359,6 @@ export default function ContactsPage({
           );
 
           setArchivedContacts(archivedMatches);
-          TenantStorage.setItem('contacts', activeMatches, safeTenant);
           const scoped = activeMatches.filter(isContactVisibleToUser);
           setInternalRecords(processAndMergeRecords([], scoped));
         })
@@ -506,15 +513,15 @@ export default function ContactsPage({
   // Classification helpers for Leads vs Customers
   const isCustomerRecord = (r) => {
     if (!r) return false;
-    const stage = String(r.status || r.stage || '').toLowerCase().trim();
-    const tags = String(r.tags || '').toLowerCase();
+    const stage = String(r.status || r.stage || r.pipeline_stage || '').toLowerCase().trim();
+    const tags = Array.isArray(r.tags) ? r.tags.join(' ').toLowerCase() : String(r.tags || '').toLowerCase();
     return /won|customer|paid|client|converted/i.test(stage) || /customer|client|paid/i.test(tags);
   };
 
   const isLeadRecord = (r) => {
     if (!r) return false;
-    const stage = String(r.status || r.stage || '').toLowerCase().trim();
-    const tags = String(r.tags || '').toLowerCase();
+    const stage = String(r.status || r.stage || r.pipeline_stage || '').toLowerCase().trim();
+    const tags = Array.isArray(r.tags) ? r.tags.join(' ').toLowerCase() : String(r.tags || '').toLowerCase();
     const isCust = /won|customer|paid|client|converted/i.test(stage) || /customer|client|paid/i.test(tags);
     const isLost = /lost|junk|spam|dead|dropped/i.test(stage);
     return !isCust && !isLost;
@@ -641,7 +648,9 @@ export default function ContactsPage({
         r && String(r.id) !== String(trueId) && String(r.displayId) !== String(rawTargetId) && (!email || r.email !== email) && (!phone || r.phone !== phone)
       ));
     }
-    TenantStorage.setItem('contacts', (internalRecords || []).filter(r => r.id !== trueId && (!email || r.email !== email)), safeTenant);
+    try {
+      TenantStorage.removeItem('contacts', safeTenant);
+    } catch (e) {}
 
     if (!silent && showToast) showToast('📁 Contact moved to Archived Vault', 'info');
   };
@@ -704,8 +713,8 @@ export default function ContactsPage({
         r && String(r.id) !== String(trueId) && String(r.displayId) !== String(trueId) && (!email || r.email !== email) && (!phone || r.phone !== phone)
       ));
     }
-    TenantStorage.setItem('contacts', (internalRecords || []).filter(r => r.id !== trueId && (!email || r.email !== email)), safeTenant);
     try {
+      TenantStorage.removeItem('contacts', safeTenant);
       localStorage.removeItem(`omniflow_cached_contacts_${safeTenant}`);
     } catch (e) {}
 
