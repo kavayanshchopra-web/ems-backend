@@ -3161,7 +3161,7 @@ export default function ListEngine({
 
         {/* CRM SALES DEALS: TOP FOLLOW-UP ACTION QUEUE & SCROLLING TICKER */}
         {/* CRM SALES DEALS: TOP FOLLOW-UP ACTION QUEUE & GLOWING RADAR COCKPIT */}
-        {isCrmModule && (
+        {isCrmModule && dueFollowupDeals.length > 0 && (
           <div
             style={{
               padding: '12px 14px',
