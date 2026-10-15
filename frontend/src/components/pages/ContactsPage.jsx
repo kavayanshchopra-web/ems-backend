@@ -836,7 +836,9 @@ export default function ContactsPage({
     moduleTitle: 'Contacts',
     description: 'Manage and track all customer contacts, calls, and leads.',
     entityName: 'Contact',
-    entityNamePlural: 'Contacts'
+    entityNamePlural: 'Contacts',
+    enableFollowup: false,
+    showFollowup: false
   }), [config]);
 
   // Clean pill-styled Segmented Navigation Tabs without icons
