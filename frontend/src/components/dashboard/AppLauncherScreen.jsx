@@ -133,14 +133,14 @@ export default function AppLauncherScreen({
         id: 'wa_live_web',
         tab: 'wa_live_web',
         label: 'WHATSAPP',
-        subLabel: 'Live QR Web',
+        subLabel: 'Growth & Tools',
         category: 'Communications',
         icon: Smartphone,
         color: '#22c55e',
         accentBg: 'rgba(34, 197, 94, 0.12)',
         borderColor: 'rgba(34, 197, 94, 0.35)',
         visible: typeof canNav === 'function' ? canNav('wa_live_web') : true,
-        desc: 'Native WhatsApp Web pairing & connected device sync'
+        desc: 'AI number warmer, proxy manager, auto call responder & flow bots'
       },
       {
         id: 'automations_sandbox',
