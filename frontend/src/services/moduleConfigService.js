@@ -42,13 +42,8 @@ export const moduleConfigService = {
 
     try {
       // Check multiple candidate keys in order of specificity
-      const candidateKeys = [
-        primaryKey,
-        `${MASTER_CONFIG_PREFIX}default_tenant`,
-        `${MASTER_CONFIG_PREFIX}default`,
-        `${MASTER_CONFIG_PREFIX}acme_corp`,
-        `${MASTER_CONFIG_PREFIX}org_default`
-      ];
+      // Strict Tenant Isolation: Do not fall back to default_tenant or acme_corp
+      const candidateKeys = [primaryKey];
 
       for (const key of candidateKeys) {
         const saved = localStorage.getItem(key);
@@ -109,8 +104,8 @@ export const moduleConfigService = {
       
       const jsonStr = JSON.stringify(allConfigs);
       localStorage.setItem(key, jsonStr);
-      localStorage.setItem(`${MASTER_CONFIG_PREFIX}default_tenant`, jsonStr);
-      localStorage.setItem(`${MASTER_CONFIG_PREFIX}default`, jsonStr);
+      // Removed global default_tenant pollution
+      // Removed global default pollution
     } catch (e) {
       console.error(`Error saving local module config for ${moduleId}:`, e);
     }
@@ -163,8 +158,8 @@ export const moduleConfigService = {
 
         const jsonStr = JSON.stringify(allConfigs);
         localStorage.setItem(key, jsonStr);
-        localStorage.setItem(`${MASTER_CONFIG_PREFIX}default_tenant`, jsonStr);
-        localStorage.setItem(`${MASTER_CONFIG_PREFIX}default`, jsonStr);
+        // Removed global default_tenant pollution
+        // Removed global default pollution
 
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
@@ -203,8 +198,8 @@ export const moduleConfigService = {
 
           const jsonStr = JSON.stringify(allConfigs);
           localStorage.setItem(key, jsonStr);
-          localStorage.setItem(`${MASTER_CONFIG_PREFIX}default_tenant`, jsonStr);
-          localStorage.setItem(`${MASTER_CONFIG_PREFIX}default`, jsonStr);
+          // Removed global default_tenant pollution
+          // Removed global default pollution
 
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {

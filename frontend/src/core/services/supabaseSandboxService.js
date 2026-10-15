@@ -1,3 +1,31 @@
+
+const IS_DUMMY_RECORD = (r) => {
+  if (!r) return false;
+  const s = (typeof r === 'string' ? r : JSON.stringify(r)).toLowerCase();
+  return (
+    s.includes('rahul.sharma') ||
+    s.includes('priya.v@company.com') ||
+    s.includes('amit.k@company.com') ||
+    s.includes('suman.shine') ||
+    s.includes('hiranur') ||
+    s.includes('luiza') ||
+    s.includes('vikas.singh') ||
+    s.includes('priya sharma') ||
+    s.includes('amit roy') ||
+    s.includes('karan malhotra') ||
+    s.includes('emp_001') ||
+    s.includes('emp_002') ||
+    s.includes('emp_003') ||
+    s.includes('emp_004') ||
+    s.includes('emp-0271') ||
+    s.includes('emp-0012') ||
+    s.includes('emp-0013') ||
+    s.includes('soundhelix.com') ||
+    s.includes('live sim call lead') ||
+    (r && r.id && String(r.id).startsWith('deal_') && !r.phone && !r.email)
+  );
+};
+
 /**
  * supabaseSandboxService.js
  * Dedicated Direct Supabase PostgreSQL 17 Client for Sandbox Environment
@@ -86,7 +114,8 @@ export const SupabaseSandboxService = {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      return (Array.isArray(data) ? data : []).map(emp => {
+      const rawEmps = Array.isArray(data) ? data : [];
+      return rawEmps.filter(emp => !IS_DUMMY_RECORD(emp)).map(emp => {
         const fullName = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.name || emp.first_name || 'Staff Employee';
         const rawStatus = String(emp.status || 'active').toLowerCase();
         const formattedStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
@@ -432,7 +461,7 @@ export const SupabaseSandboxService = {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const batch = Array.isArray(data) ? data : [];
-        allContacts.push(...batch);
+        allContacts.push(...(batch || []).filter(c => !IS_DUMMY_RECORD(c)));
 
         if (batch.length < limit) {
           hasMore = false;
@@ -2218,7 +2247,7 @@ export const SupabaseSandboxService = {
         } else {
           return await this.createEmployee(recordData, numTenant);
         }
-      } else if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
+      } else if (cleanMod === 'contacts') {
         try {
           if (recordId) {
             return await this.updateContact(recordId, recordData, numTenant);
@@ -2319,7 +2348,7 @@ export const SupabaseSandboxService = {
         return await this.fetchAttendance(numTenant);
       } else if (cleanMod === 'employees') {
         return await this.fetchEmployees(numTenant);
-      } else if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
+      } else if (cleanMod === 'contacts') {
         return await this.fetchContacts(numTenant);
       }
 
@@ -2388,7 +2417,7 @@ export const SupabaseSandboxService = {
         await this.deleteNotice(docId, numTenant);
       } else if (cleanMod === 'employees') {
         await this.deleteEmployee(docId, numTenant);
-      } else if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
+      } else if (cleanMod === 'contacts') {
         await this.deleteContact(docId, numTenant);
       }
 

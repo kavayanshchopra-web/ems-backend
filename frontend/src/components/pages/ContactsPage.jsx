@@ -1,3 +1,23 @@
+
+const isLegacyDummyContact = (item) => {
+  if (!item) return false;
+  const s = JSON.stringify(item).toLowerCase();
+  return (
+    s.includes('rahul.sharma') ||
+    s.includes('priya.v@company.com') ||
+    s.includes('amit.k@company.com') ||
+    s.includes('suman.shine') ||
+    s.includes('hiranur') ||
+    s.includes('luiza') ||
+    s.includes('vikas.singh') ||
+    s.includes('priya sharma') ||
+    s.includes('amit roy') ||
+    s.includes('karan malhotra') ||
+    s.includes('live sim call lead') ||
+    (item.id && String(item.id).startsWith('deal_') && !item.phone && !item.email)
+  );
+};
+
 /**
  * CRM CONTACTS & LEADS MASTER PAGE (GHL 2-WAY SYNC HUB)
  * Fully Dynamic Universal Engine Roster with HighLevel Bidirectional Sync & Strict Deduplication
@@ -133,7 +153,7 @@ export default function ContactsPage({
   // Sync when propContacts arrives or updates from parent
   useEffect(() => {
     if (Array.isArray(propContacts)) {
-      const tenantScoped = propContacts.filter(isContactVisibleToUser);
+      const tenantScoped = propContacts.filter(isContactVisibleToUser).filter(c => !isLegacyDummyContact(c));
       setInternalRecords(tenantScoped);
     }
   }, [propContacts, companyId, userRole, userEmpId, userEmail, userName]);
@@ -345,7 +365,7 @@ export default function ContactsPage({
       }
       SupabaseSandboxService.fetchContacts(safeTenant)
         .then(sbContacts => {
-          const allTenantContacts = (sbContacts || []).filter(r => {
+          const allTenantContacts = (sbContacts || []).filter(c => !isLegacyDummyContact(c)).filter(r => {
             const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
             return !itemTenant || itemTenant === String(safeTenant);
           });

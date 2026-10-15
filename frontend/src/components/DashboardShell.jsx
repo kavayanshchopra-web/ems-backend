@@ -335,24 +335,7 @@ const getSafeFallbackData = (url, method = 'GET') => {
   const cleanMethod = (method || 'GET').toUpperCase();
   if (cleanMethod !== 'GET') {
     if (url.includes('/telecalling/sync-log')) {
-      return {
-        success: true,
-        message: 'Call log synced successfully.',
-        callLog: {
-          id: `call_${Date.now()}`,
-          agentName: 'Telecaller Agent',
-          agentRole: 'Senior Telecaller',
-          customerName: 'Live SIM Call Lead',
-          customerPhone: '+91 98765 43210',
-          channel: 'SIM',
-          type: 'OUTGOING',
-          durationSeconds: 95,
-          timestamp: new Date().toLocaleString(),
-          recordingUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-          disposition: 'Interested',
-          notes: 'Real Call Recorded & Synced'
-        }
-      };
+      return { success: true, message: 'Call log synced successfully.', callLog: null };
     }
     return { success: true, message: 'Operation completed in safe offline/fallback mode.' };
   }
@@ -1500,7 +1483,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       type: 'OUTGOING',
       durationSeconds: activeCallDuration || 45,
       timestamp: new Date().toLocaleString(),
-      recordingUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+      recordingUrl: null,
       disposition: disposition,
       notes: notes,
       simSlot: 'SIM 1 (Work)'
@@ -1568,7 +1551,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       const fetchPromise = SupabaseSandboxService.fetchCallLogs(tenantNum);
 
       fetchPromise.then(logs => {
-        setCallLogs(logs);
+        setCallLogs((logs || []).filter(l => !isDummyRecord(l)));
         TenantStorage.setItem('call_logs', logs, activeTenantKey);
       }).catch(err => console.error('[DashboardShell] Supabase call_logs fetch error:', err));
       return;
@@ -2005,9 +1988,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   };
   const handleSimulateCall = async (callType) => {
     const isIncoming = callType === 'INCOMING';
-    const sampleAudio = isIncoming 
-      ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'
-      : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+    const sampleAudio = null;
     const fallbackLog = {
       id: `call_${Date.now()}`,
       agentName: authUser?.name || authUser?.email || 'Telecaller Agent',
@@ -4667,7 +4648,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       const currentTenantId = (!isNaN(numT) && numT > 0) ? numT : 1;
 
       const sandboxEmps = await SupabaseSandboxService.fetchEmployees(currentTenantId);
-      setEmployees(sandboxEmps);
+      const cleanEmps = (sandboxEmps || []).filter(e => !isDummyRecord(e));
+      setEmployees(cleanEmps);
       try { TenantStorage.setItem('employees', sandboxEmps, currentTenantId); } catch (e) {}
       return;
     } catch (fbErr) {
@@ -6192,7 +6174,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           return;
         }
         const sbContacts = await SupabaseSandboxService.fetchContacts(currentTenantId);
-        const strictlyTenant = (sbContacts || []).filter(c => {
+        const strictlyTenant = (sbContacts || []).filter(c => !isDummyRecord(c)).filter(c => {
           const cT = String(c.tenant_id ?? c.tenantId ?? '');
           const isArchived = c.is_archived === 1 || c.is_archived === true || c.archived === true;
           return cT && cT === String(currentTenantId) && !isArchived;
