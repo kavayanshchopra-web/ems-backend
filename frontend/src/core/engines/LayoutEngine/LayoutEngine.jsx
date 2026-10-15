@@ -112,7 +112,8 @@ export default function LayoutEngine({
   onOpenPositionModal = () => {},
   onOpenChatWithLead = null,
   customHeaderActions = null,
-  customHeaderLeft = null
+  customHeaderLeft = null,
+  isArchivedViewProp = false
 }) {
   // View Mode state
   const availableViews = moduleConfig.views?.availableViews || ['kanban', 'list'];
@@ -372,7 +373,7 @@ export default function LayoutEngine({
         sortKey={sortKey}
         sortDir={sortDir}
         onSortChange={(key, dir) => { setSortKey(key); setSortDir(dir); }}
-        archivedCount={archivedModuleItems.length}
+        archivedCount={Math.max(archivedModuleItems.length, (recycleBinItems || []).length, (isArchivedViewProp ? records.length : 0))}
         onOpenArchived={() => setViewMode(prev => prev === 'archived' ? (moduleConfig?.views?.defaultView || 'list') : 'archived')}
         onOpenAddModal={() => { setSelectedRecord(null); setShowAddModal(true); }}
         onOpenConfigModal={() => {

@@ -560,22 +560,21 @@ export default function ActionEngine({
       archivedAt: new Date().toISOString()
     };
 
-    if (isSandboxEnvironment()) {
-      const numericTenantId = Number(authUser?.tenantId || authUser?.companyId || authUser?.tenant_id) || 1;
-      const cleanMod = String(moduleConfig.moduleId || '').toLowerCase();
-      if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
-        SupabaseSandboxService.archiveContact(record.id, numericTenantId, true, record.phone, record.email).catch(console.error);
-      }
+    const numericTenantId = Number(record.tenant_id || record.tenantId || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id) || 1;
+    const cleanMod = String(moduleConfig.moduleId || '').toLowerCase();
+    if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
+      SupabaseSandboxService.archiveContact(record.id, numericTenantId, true, record.phone, record.email).catch(console.error);
     }
 
     if (typeof onArchiveRecord === 'function') {
       onArchiveRecord(record);
-    } else if (typeof softDeleteRecord === 'function') {
+    }
+    if (typeof softDeleteRecord === 'function') {
       softDeleteRecord({
         originalId: record.id,
         name: `${entityName}: "${nameStr}"`,
         category: `${entityName} Record`,
-        entityData: { record: archivedRecordObject, candidate: archivedRecordObject },
+        entityData: { record: archivedRecordObject, candidate: archivedRecordObject, ...archivedRecordObject },
         moduleTab: moduleConfig.moduleId
       });
     }

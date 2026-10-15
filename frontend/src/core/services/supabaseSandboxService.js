@@ -517,7 +517,7 @@ export const SupabaseSandboxService = {
         phone_normalized: cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone,
         email: email,
         pipeline_stage: contactData.pipeline_stage || contactData.stage || 'new',
-        is_archived: Boolean(contactData.is_archived),
+        is_archived: contactData.is_archived ? 1 : 0,
         labels: contactData.labels || [],
         notes: contactData.notes || '',
         deal_value: String(contactData.deal_value || contactData.dealValue || contactData.amount || 0),
@@ -585,7 +585,7 @@ export const SupabaseSandboxService = {
             phone_normalized: cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone,
             email: email,
             pipeline_stage: c.pipeline_stage || c.pipelineStage || 'lead',
-            is_archived: Boolean(c.is_archived),
+            is_archived: c.is_archived ? 1 : 0,
             labels: labels,
             notes: (c.notes && !String(c.notes).includes('Imported from GoHighLevel') && !String(c.notes).includes('Imported from CRM')) ? c.notes : '',
             deal_value: String(c.deal_value || c.monetaryValue || 0),
@@ -635,7 +635,7 @@ export const SupabaseSandboxService = {
         updated_at: new Date().toISOString()
       };
       if (contactData.is_archived !== undefined) {
-        payload.is_archived = Boolean(contactData.is_archived);
+        payload.is_archived = contactData.is_archived ? 1 : 0;
       }
       Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
 
@@ -749,34 +749,72 @@ export const SupabaseSandboxService = {
     try {
       const numTenant = Number(tenantId) || 1;
       const cleanId = String(id || '').trim();
-      const targetUrls = [SUPABASE_URL, 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1'];
+      const archiveVal = isArchived ? 1 : 0;
+      const patchBody = JSON.stringify({
+        is_archived: archiveVal,
+        updated_at: new Date().toISOString()
+      });
 
-      for (const baseUrl of targetUrls) {
+      const targets = [
+        { url: SUPABASE_URL, key: SUPABASE_KEY },
+        { url: 'https://pdjaajbhrvglwukoacuh.supabase.co/rest/v1', key: 'sb_publishable_q8SBMvAwczXP0yfDfIMZsQ_ahP5YYq3' },
+        { url: 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1', key: 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1' }
+      ];
+
+      for (const target of targets) {
+        const headers = {
+          'apikey': target.key,
+          'Authorization': `Bearer ${target.key}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        };
+
         if (cleanId) {
-          await fetch(`${baseUrl}/contacts?id=eq.${encodeURIComponent(cleanId)}&tenant_id=eq.${numTenant}`, {
-            method: 'PATCH',
-            headers: getHeaders(),
-            body: JSON.stringify({ is_archived: Boolean(isArchived), updated_at: new Date().toISOString() })
-          }).catch(() => {});
+          try {
+            const r = await fetch(`${target.url}/contacts?id=eq.${encodeURIComponent(cleanId)}&tenant_id=eq.${numTenant}`, {
+              method: 'PATCH',
+              headers,
+              body: patchBody
+            });
+            const data = await r.json().catch(() => []);
+            if (!Array.isArray(data) || data.length === 0) {
+              await fetch(`${target.url}/contacts?id=eq.${encodeURIComponent(cleanId)}`, {
+                method: 'PATCH',
+                headers,
+                body: patchBody
+              }).catch(() => {});
+            }
+          } catch (e) {}
         }
+
         if (phone) {
           const cleanDigits = String(phone).replace(/\D/g, '');
           if (cleanDigits.length >= 7) {
             const norm10 = cleanDigits.slice(-10);
-            await fetch(`${baseUrl}/contacts?phone=ilike.*${norm10}*&tenant_id=eq.${numTenant}`, {
-              method: 'PATCH',
-              headers: getHeaders(),
-              body: JSON.stringify({ is_archived: Boolean(isArchived), updated_at: new Date().toISOString() })
-            }).catch(() => {});
+            try {
+              await fetch(`${target.url}/contacts?phone=ilike.*${norm10}*`, {
+                method: 'PATCH',
+                headers,
+                body: patchBody
+              }).catch(() => {});
+              await fetch(`${target.url}/contacts?id=ilike.*${norm10}*`, {
+                method: 'PATCH',
+                headers,
+                body: patchBody
+              }).catch(() => {});
+            } catch (e) {}
           }
         }
+
         if (email && String(email).includes('@')) {
           const cleanEmail = String(email).toLowerCase().trim();
-          await fetch(`${baseUrl}/contacts?email=eq.${encodeURIComponent(cleanEmail)}&tenant_id=eq.${numTenant}`, {
-            method: 'PATCH',
-            headers: getHeaders(),
-            body: JSON.stringify({ is_archived: Boolean(isArchived), updated_at: new Date().toISOString() })
-          }).catch(() => {});
+          try {
+            await fetch(`${target.url}/contacts?email=eq.${encodeURIComponent(cleanEmail)}`, {
+              method: 'PATCH',
+              headers,
+              body: patchBody
+            }).catch(() => {});
+          } catch (e) {}
         }
       }
       return true;
@@ -793,14 +831,29 @@ export const SupabaseSandboxService = {
       const cleanIds = ids.map(id => String(id).trim()).filter(Boolean);
       if (cleanIds.length === 0) return true;
 
-      const targetUrls = [SUPABASE_URL, 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1'];
-      for (const baseUrl of targetUrls) {
+      const archiveVal = isArchived ? 1 : 0;
+      const patchBody = JSON.stringify({ is_archived: archiveVal, updated_at: new Date().toISOString() });
+
+      const targets = [
+        { url: SUPABASE_URL, key: SUPABASE_KEY },
+        { url: 'https://pdjaajbhrvglwukoacuh.supabase.co/rest/v1', key: 'sb_publishable_q8SBMvAwczXP0yfDfIMZsQ_ahP5YYq3' },
+        { url: 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1', key: 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1' }
+      ];
+
+      for (const target of targets) {
+        const headers = {
+          'apikey': target.key,
+          'Authorization': `Bearer ${target.key}`,
+          'Content-Type': 'application/json'
+        };
         for (const cid of cleanIds) {
-          await fetch(`${baseUrl}/contacts?id=eq.${encodeURIComponent(cid)}&tenant_id=eq.${numTenant}`, {
-            method: 'PATCH',
-            headers: getHeaders(),
-            body: JSON.stringify({ is_archived: Boolean(isArchived), updated_at: new Date().toISOString() })
-          }).catch(() => {});
+          try {
+            await fetch(`${target.url}/contacts?id=eq.${encodeURIComponent(cid)}`, {
+              method: 'PATCH',
+              headers,
+              body: patchBody
+            }).catch(() => {});
+          } catch (e) {}
         }
       }
       return true;

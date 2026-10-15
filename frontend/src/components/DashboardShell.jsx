@@ -8795,6 +8795,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Contacts & Leads...</div>}>
             <ContactsPage
               authUser={effectiveAuthUser || authUser}
+              companyId={effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id}
               contacts={contacts}
               setContacts={setContacts}
               showToast={showToast}
