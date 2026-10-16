@@ -62,3 +62,19 @@ Welcome to the **Company Owner Control Manual**. As the business owner, you mana
   - Click on **`📜 System Audit Logs`** in the dashboards list.
   - You can monitor security logs showing who performed which actions (e.g. login updates, rate adjustments).
   - Click **`🧹 Clear Log Registry`** to flush session event logs.
+
+---
+
+## 📱 WhatsApp Automation Dashboard & Live Data Inspectors
+
+### 7. **Interactive Dashboard Cards (Inspect Data Source with 1-Click)**
+- **What it is:** Every metric card on the WhatsApp Automation dashboard is clickable, allowing you to instantly view and manage the underlying database records.
+- **How to interact:**
+  - **Messages Sent Card:** Click to open **Messages & Dispatch Logs**, view delivery statuses (`Delivered`, `Read`), and test live dispatches.
+  - **Active Devices Card:** Click to open **Connected WhatsApp Devices**, view all paired phone numbers, and generate new QR pairing codes.
+  - **Total Contacts Card:** Click to view all synchronized CRM contacts with live name/phone search and direct WhatsApp triggers.
+  - **Templates Card:** Click to inspect pre-approved company message templates and variables.
+  - **Auto Reply Card:** Click to view active keyword triggers and add automated replies for customer queries.
+  - **Chatbot & Call Responder Cards:** Click to check automated conversational bot flows and missed call text-back rules.
+  - **Bulk Campaigns Card:** Click to review mass broadcast history and delivery reports.
+

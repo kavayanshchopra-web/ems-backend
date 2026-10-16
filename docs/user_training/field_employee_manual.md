@@ -49,3 +49,17 @@ Welcome to the **Field Employee Mobile App Guide**. This manual details how to r
   - Keep performing client check-ins. You will see: `📦 Pings stored locally: X points`.
   - Once your internet signal returns, toggle the switch back to **`ONLINE`**.
   - The app will show a **`🔄 Syncing...`** indicator and upload your cached points to the server.
+
+---
+
+## 📱 WhatsApp Customer Outreach & Dashboard Shortcuts
+
+### 5. **Direct Customer WhatsApp Messaging from Dashboard**
+- **Find and Chat with a Lead:**
+  - Click on the **`Total Contacts`** card on your dashboard.
+  - Search for your client by name or phone number.
+  - Click the green **`WhatsApp`** button to open the Quick Send window with the customer's phone pre-filled.
+  - Select an approved template or compose a greeting, then click **Send**.
+- **Verify Delivery Status:**
+  - Click on the **`Messages Sent`** card to verify that your customer received your WhatsApp message with a green **Delivered** or purple **Read** badge.
+

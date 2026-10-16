@@ -53,3 +53,16 @@ Welcome to the **Manager Portal Control Manual**. As a manager, you supervise fi
   - An search overlay modal will display. Type the query (e.g., "Amit", "Noida", "Audit").
   - Click on the search item to go directly to the target tab.
   - Press **`Esc`** at any time to instantly close this overlay or any other modal dialog boxes.
+
+---
+
+## 📱 WhatsApp Automation Dashboard & Team Telemetry
+
+### 6. **Using Clickable Dashboard Cards to Inspect Records**
+- **Messages Sent:** Click the card to view all logged customer messages, delivery checkmarks (`Delivered`, `Read`), and test live dispatches.
+- **Active Devices:** Click the card to check which team devices are online and manage WhatsApp sessions.
+- **Total Contacts:** Click to browse the synchronized CRM contact database, filter leads by pipeline stages, and initiate direct chats.
+- **Templates:** Click to browse approved message scripts and pre-configured responses.
+- **Auto Reply & Chatbot:** Click to check keyword reply hit counts and conversation flow performance.
+- **Bulk Campaigns:** Click to check mass broadcast logs and completion percentages.
+

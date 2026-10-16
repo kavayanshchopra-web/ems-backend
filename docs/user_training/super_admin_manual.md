@@ -28,3 +28,18 @@ Welcome to the **Super Admin Portal Control Manual**. As a Super Admin, you mana
 - **How to manage:**
   - Open **Recycle Bin** from the sidebar controls.
   - Review deleted items list and click **`Restore`** to recover data or **`Permanently Delete`** to clean up database space.
+
+---
+
+## 📱 WhatsApp Automation Dashboard & Data Telemetry
+
+### 4. **Interactive Dashboard Inspection**
+- **What it is:** Super Admins can click on any metric card in the WhatsApp dashboard to inspect data sources, message logs, and channel integrity.
+- **Key Actions:**
+  - **Messages Sent:** Click to review all message dispatch logs with recipient details, delivery timestamps, and telemetry.
+  - **Active Devices:** Click to view connected WhatsApp numbers, session IDs, and QR authentication.
+  - **Total Contacts:** Click to browse all synced CRM contacts with search and direct chat triggers.
+  - **Templates:** Click to manage system template libraries.
+  - **Automations:** Click **Auto Reply**, **Chatbot**, **Call Responder**, or **Bulk Campaigns** to review active automation rules and response logs.
+  - **Device Health:** Click to monitor anti-ban security parameters and message velocity throttles.
+
