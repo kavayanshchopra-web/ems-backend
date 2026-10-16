@@ -18,8 +18,8 @@ import { SearchEngine } from '../SearchEngine';
 import { FilterEngine } from '../FilterEngine';
 import { LabelEngine } from '../LabelEngine';
 import { PermissionEngine, getUserRole } from '../PermissionEngine';
-import ModuleConfigEditor from '../../../components/config/ModuleConfigEditor';
 import { moduleConfigService } from '../../../services/moduleConfigService';
+import { isGhostCrmDeal } from '../../utils/dealSanitizer';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -264,9 +264,21 @@ export default function LayoutEngine({
     });
   }
 
+  const isCrmOrDealsModule = Boolean(
+    moduleConfig.moduleId === 'crm_deals' ||
+    moduleConfig.moduleId === 'crm' ||
+    moduleConfig.id === 'crm_deals' ||
+    moduleConfig.name === 'CRM Sales Deals' ||
+    moduleConfig.moduleId === 'contacts'
+  );
+
   const activeModuleRecords = useMemo(() => {
-    return (initialModuleRecords || []).filter(r => !!r);
-  }, [initialModuleRecords]);
+    let list = (initialModuleRecords || []).filter(r => !!r);
+    if (isCrmOrDealsModule) {
+      list = list.filter(r => !isGhostCrmDeal(r));
+    }
+    return list;
+  }, [initialModuleRecords, isCrmOrDealsModule]);
 
   // 1. FILTERING ENGINE PIPELINE (Memoized)
   const filteredRecords = useMemo(() => {

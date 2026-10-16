@@ -16,6 +16,7 @@ import BulkActionEngine from '../BulkActionEngine/BulkActionEngine';
 import ColumnManagerPopover from './ColumnManagerPopover';
 import { formatCandidateId } from '../../../services/atsStorageService';
 import WhatsAppTemplateService from '../../services/whatsAppTemplateService';
+import { isGhostCrmDeal } from '../../utils/dealSanitizer';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -573,7 +574,7 @@ export default function ListEngine({
     endOfToday.setHours(23, 59, 59, 999);
 
     return (records || []).filter(r => {
-      if (!r) return false;
+      if (!r || isGhostCrmDeal(r)) return false;
       const rawF = r.follow_up_date || r.followup_date || r.followUpDate || r.next_action_date || r.followup;
       if (!rawF) return false;
       const fTime = new Date(rawF).getTime();
@@ -641,7 +642,10 @@ export default function ListEngine({
 
   const dueIdSet = React.useMemo(() => new Set(dueFollowupDeals.map(d => d.record.id)), [dueFollowupDeals]);
   const safeRecords = React.useMemo(() => {
-    const base = (records || []).filter(r => !!r);
+    let base = (records || []).filter(r => !!r);
+    if (isCrmModule) {
+      base = base.filter(r => !isGhostCrmDeal(r));
+    }
     if (focusFollowupsOnly && isCrmModule) {
       return base.filter(r => dueIdSet.has(r.id));
     }

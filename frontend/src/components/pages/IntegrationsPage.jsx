@@ -1277,7 +1277,13 @@ export default function IntegrationsPage({
 
             // 2. Also register into CRM Deals Kanban
             for (const c of pageContacts) {
-              const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'CRM Lead';
+              const cleanDigits = (c.phone || c.phoneNumber || '').replace(/\D/g, '');
+              const cleanEmailStr = (c.email || '').trim().toLowerCase();
+              const hasRealPhone = cleanDigits.length >= 7;
+              const hasRealEmail = cleanEmailStr.includes('@') && cleanEmailStr.includes('.') && !cleanEmailStr.includes('example.com');
+              if (!hasRealPhone && !hasRealEmail) continue;
+
+              const fullName = (c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || '').trim() || 'Valued Lead';
               const dealPayload = {
                 id: `deal_${c.id}`,
                 title: `${fullName} - Deal`,
@@ -1324,11 +1330,18 @@ export default function IntegrationsPage({
             } catch (sbErr) {}
           }
           for (const contact of importedList) {
+            const cleanDigits = (contact.phone || contact.phoneNumber || '').replace(/\D/g, '');
+            const cleanEmailStr = (contact.email || '').trim().toLowerCase();
+            const hasRealPhone = cleanDigits.length >= 7;
+            const hasRealEmail = cleanEmailStr.includes('@') && cleanEmailStr.includes('.') && !cleanEmailStr.includes('example.com');
+            if (!hasRealPhone && !hasRealEmail) continue;
+
+            const fullName = (contact.name || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || contact.phone || '').trim() || 'Valued Lead';
             const dealId = `deal_${contact.id || contact.ghlId}`;
             const dealPayload = {
               id: dealId,
-              title: `${contact.name || 'CRM Lead'} - Deal`,
-              customer_name: contact.name || 'CRM Lead',
+              title: `${fullName} - Deal`,
+              customer_name: fullName,
               phone: contact.phone || '',
               email: contact.email || '',
               deal_stage: 'New Lead',
@@ -1344,7 +1357,7 @@ export default function IntegrationsPage({
             FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId).catch(() => {});
             FirebaseCloudEngine.saveRecord('contacts', {
               id: contact.id || `ghl_${contact.ghlId}`,
-              name: contact.name || 'CRM Lead',
+              name: fullName,
               phone: contact.phone || '',
               email: contact.email || '',
               pipeline_stage: contact.pipelineStage || 'lead',

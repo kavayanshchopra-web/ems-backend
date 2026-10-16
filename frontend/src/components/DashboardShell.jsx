@@ -1792,10 +1792,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           const existingDealIds = new Set((existingDeals || []).map(d => String(d.id)));
 
           for (const c of validContacts) {
+            const cleanDigits = (c.phone || c.phoneNumber || '').replace(/\D/g, '');
+            const cleanEmailStr = (c.email || '').trim().toLowerCase();
+            const hasRealPhone = cleanDigits.length >= 7;
+            const hasRealEmail = cleanEmailStr.includes('@') && cleanEmailStr.includes('.') && !cleanEmailStr.includes('example.com');
+            if (!hasRealPhone && !hasRealEmail) continue;
+
             const dealId = `deal_${c.id}`;
             if (!existingDealIds.has(dealId) && !knownContactIds.has(c.id)) {
               knownContactIds.add(c.id);
-              const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'CRM Lead';
+              const fullName = (c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || '').trim() || 'Valued Lead';
               const cleanPhone = (c.phone || '').replace(/[^0-9+]/g, '');
 
               const dealPayload = {

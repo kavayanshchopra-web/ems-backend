@@ -3,6 +3,8 @@ import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 
+import { isGhostCrmDeal, sanitizeCrmDeals } from '../../core/utils/dealSanitizer';
+
 export default function KanbanPage({
   authUser,
   contacts = [],
@@ -27,7 +29,10 @@ export default function KanbanPage({
     try {
       if (typeof window !== 'undefined') {
         const cached = sessionStorage.getItem(cacheKey) || localStorage.getItem(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          return sanitizeCrmDeals(parsed);
+        }
       }
     } catch (e) {}
     return [];
@@ -38,11 +43,24 @@ export default function KanbanPage({
   useEffect(() => {
     const unsubscribe = FirebaseCloudEngine.subscribeToCollection('crm_deals', companyId, (records) => {
       const list = Array.isArray(records) ? records : [];
-      setDeals(list);
+      const validList = list.filter(r => !isGhostCrmDeal(r));
+      const ghostList = list.filter(isGhostCrmDeal);
+
+      // Clean up ghost records in background from Firestore
+      if (ghostList.length > 0) {
+        ghostList.forEach(ghost => {
+          if (ghost && ghost.id) {
+            FirebaseCloudEngine.deleteRecord('crm_deals', ghost.id, companyId).catch(() => {});
+          }
+        });
+      }
+
+      setDeals(validList);
       setLoading(false);
       try {
-        if (typeof window !== 'undefined' && list.length > 0) {
-          sessionStorage.setItem(cacheKey, JSON.stringify(list));
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(cacheKey, JSON.stringify(validList));
+          localStorage.setItem(cacheKey, JSON.stringify(validList));
         }
       } catch (e) {}
     });
@@ -52,10 +70,12 @@ export default function KanbanPage({
   }, [companyId, cacheKey]);
 
   const handleUpdateDeals = (newRecords) => {
-    setDeals(newRecords);
+    const valid = sanitizeCrmDeals(newRecords);
+    setDeals(valid);
     try {
-      if (typeof window !== 'undefined' && Array.isArray(newRecords)) {
-        sessionStorage.setItem(cacheKey, JSON.stringify(newRecords));
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(cacheKey, JSON.stringify(valid));
+        localStorage.setItem(cacheKey, JSON.stringify(valid));
       }
     } catch (e) {}
   };

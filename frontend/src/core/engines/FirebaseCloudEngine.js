@@ -19,6 +19,7 @@ import {
   where
 } from 'firebase/firestore';
 import { isSandboxEnvironment, SupabaseSandboxService } from '../services/supabaseSandboxService';
+import { isGhostCrmDeal } from '../utils/dealSanitizer';
 
 class FirebaseCloudEngine {
   static _memoryCache = new Map();
@@ -53,31 +54,35 @@ class FirebaseCloudEngine {
 
   static getCachedRecords(collectionName, tenantId) {
     const cacheKey = this.getCacheKey(collectionName, tenantId);
+    let result = null;
     if (this._memoryCache.has(cacheKey)) {
-      return this._memoryCache.get(cacheKey);
-    }
-    if (typeof window !== 'undefined') {
+      result = this._memoryCache.get(cacheKey);
+    } else if (typeof window !== 'undefined') {
       try {
         const local = localStorage.getItem(cacheKey);
         if (local) {
           const parsed = JSON.parse(local);
           if (Array.isArray(parsed)) {
             this._memoryCache.set(cacheKey, parsed);
-            return parsed;
+            result = parsed;
           }
         }
       } catch (e) {}
     }
-    return null;
+    if (Array.isArray(result) && collectionName === 'crm_deals') {
+      return result.filter(d => !isGhostCrmDeal(d));
+    }
+    return result;
   }
 
   static setCachedRecords(collectionName, tenantId, records) {
     if (!Array.isArray(records)) return;
+    const safeRecords = collectionName === 'crm_deals' ? records.filter(d => !isGhostCrmDeal(d)) : records;
     const cacheKey = this.getCacheKey(collectionName, tenantId);
-    this._memoryCache.set(cacheKey, records);
+    this._memoryCache.set(cacheKey, safeRecords);
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(cacheKey, JSON.stringify(records.slice(0, 500)));
+        localStorage.setItem(cacheKey, JSON.stringify(safeRecords.slice(0, 500)));
       } catch (e) {}
     }
   }
@@ -86,6 +91,9 @@ class FirebaseCloudEngine {
    * Save / Update a record in Firestore with automatic tenantId isolation
    */
   static async saveRecord(collectionName, recordData, tenantId = null) {
+    if (collectionName === 'crm_deals' && isGhostCrmDeal(recordData)) {
+      return null;
+    }
     const activeTenantId = this.getTenantId(tenantId);
     const docId = recordData.id ? String(recordData.id) : `doc_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
     const payload = {
@@ -164,7 +172,10 @@ class FirebaseCloudEngine {
         
         const fetchPromise = getDocs(q).then((snap) => {
           if (snap && !snap.empty) {
-            const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(i => !!i);
+            let fresh = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(i => !!i);
+            if (collectionName === 'crm_deals') {
+              fresh = fresh.filter(d => !isGhostCrmDeal(d));
+            }
             this.setCachedRecords(collectionName, tenantId, fresh);
             return fresh;
           } else {
@@ -232,7 +243,8 @@ class FirebaseCloudEngine {
     // Fire callback immediately with cached data if present (0ms instant render)
     const cached = this.getCachedRecords(collectionName, tenantId);
     if (cached && cached.length > 0 && typeof callback === 'function') {
-      try { callback(cached); } catch (e) {}
+      const safeCached = (collectionName === 'crm_deals') ? cached.filter(d => !isGhostCrmDeal(d)) : cached;
+      try { callback(safeCached); } catch (e) {}
     }
 
     if (!db) return () => {};
@@ -243,7 +255,10 @@ class FirebaseCloudEngine {
         ? colRef 
         : query(colRef, where('tenantId', '==', activeTenantId));
       return onSnapshot(q, (snap) => {
-        const records = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(i => !!i);
+        let records = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(i => !!i);
+        if (collectionName === 'crm_deals') {
+          records = records.filter(d => !isGhostCrmDeal(d));
+        }
         this.setCachedRecords(collectionName, tenantId, records);
         if (typeof callback === 'function') callback(records);
       }, (err) => {
