@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import io from 'socket.io-client';
 import {
   LayoutDashboard,
   Smartphone,
@@ -298,15 +299,16 @@ export default function LiveWhatsAppWebPage({
   const handleDisconnectSession = async (sessId) => {
     const targetId = sessId || (isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${activeTenant}_primary`) : myTargetSessionId);
     const confirmPrompt = isOwnerOrAdmin
-      ? 'Are you sure you want to disconnect this WhatsApp number and generate a new QR code?'
+      ? 'Are you sure you want to disconnect this WhatsApp number and unpair the phone?'
       : 'Are you sure you want to disconnect your WhatsApp line?';
     if (!window.confirm(confirmPrompt)) return;
     setQrLoading(true);
-    setQrActionMsg('Disconnecting WhatsApp session...');
+    setQrActionMsg('Disconnecting session and unlinking device...');
     try {
-      setLocalSessions(prev => (prev || []).map(s => s.id === targetId ? { ...s, status: 'connecting', qr_code: null } : s));
+      // Optimistically disconnect in UI so chat stops immediately
+      setLocalSessions(prev => (prev || []).map(s => s.id === targetId ? { ...s, status: 'disconnected', qr_code: null, phone_number: null } : s));
 
-      const res = await fetch(`${API_URL}/sessions/reset/${encodeURIComponent(targetId)}`, {
+      await fetch(`${API_URL}/sessions/reset/${encodeURIComponent(targetId)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -316,11 +318,9 @@ export default function LiveWhatsAppWebPage({
         body: JSON.stringify({ tenantId: activeTenant })
       });
 
-      const data = await res.json().catch(() => ({}));
-      const newId = data.newSessionId || targetId;
-
       await fetchCurrentSessions();
-      handleStartSession(newId);
+      setActivePairingTab('qr');
+      setQrActionMsg('Device disconnected. Click Refresh QR to pair a new number.');
     } catch (err) {
       console.error('[Disconnect Session Error]', err);
       setQrActionMsg('Disconnect notice: ' + err.message);
@@ -354,42 +354,94 @@ export default function LiveWhatsAppWebPage({
     }
   };
 
-  // Poll sessions while QR modal is open and auto-request QR safely
+  // 1. Real-time Socket.IO listener for live session connection & disconnect events
   useEffect(() => {
-    if (!showQrModal) return;
+    const socketBase = isDesktop ? 'http://localhost:5000' : 'https://api.employeemanagementsystems.com';
+    let socket = null;
+    try {
+      socket = io(socketBase, {
+        transports: ['websocket', 'polling'],
+        auth: { token }
+      });
+      socket.on('connect', () => {
+        socket.emit('join_tenant', `tenant_${activeTenant}`);
+      });
+      socket.on('session_update', (data) => {
+        if (!data || !data.id) return;
+        setLocalSessions(prev => {
+          const list = prev || [];
+          const exists = list.some(s => String(s.id) === String(data.id));
+          if (exists) {
+            return list.map(s => String(s.id) === String(data.id) ? {
+              ...s,
+              status: data.status,
+              qr_code: data.status === 'connected' ? null : (data.qr || data.qr_code || s.qr_code),
+              phone_number: data.phoneNumber || data.phone_number || s.phone_number,
+              profile_pic_url: data.profilePicUrl || data.profile_pic_url || s.profile_pic_url
+            } : s);
+          } else {
+            return [{
+              id: data.id,
+              phone_name: 'Primary WhatsApp',
+              status: data.status,
+              qr_code: data.status === 'connected' ? null : (data.qr || data.qr_code || null),
+              phone_number: data.phoneNumber || data.phone_number || null,
+              profile_pic_url: data.profilePicUrl || data.profile_pic_url || null
+            }, ...list];
+          }
+        });
+        if (data.status === 'connected') {
+          setQrLoading(false);
+          setQrActionMsg('WhatsApp device connected successfully!');
+        } else if (data.status === 'disconnected') {
+          setQrLoading(false);
+          setQrActionMsg('WhatsApp device disconnected.');
+        }
+      });
+      socket.on('session_disconnected', (data) => {
+        if (!data) return;
+        setLocalSessions(prev => (prev || []).map(s => {
+          if (String(s.id) === String(data.sessionId)) {
+            return { ...s, status: 'disconnected', qr_code: null, phone_number: null };
+          }
+          return s;
+        }));
+      });
+    } catch (e) {
+      console.warn('[LiveWhatsAppWebPage] Socket setup notice:', e);
+    }
+    return () => {
+      if (socket) {
+        try { socket.disconnect(); } catch (_) {}
+      }
+    };
+  }, [activeTenant, token]);
 
+  // 2. Smart polling to keep device connection status and stats fresh across all tabs
+  useEffect(() => {
     fetchCurrentSessions();
+    const pollIntervalMs = (currentNav === 'devices' || showQrModal) ? 2500 : 8000;
+    const interval = setInterval(() => {
+      fetchCurrentSessions();
+    }, pollIntervalMs);
+    return () => clearInterval(interval);
+  }, [currentNav, showQrModal, fetchCurrentSessions]);
 
+  // 3. Auto-start pairing/QR generation only when on Devices tab or Modal and session is unstarted
+  useEffect(() => {
+    if (currentNav !== 'devices' && !showQrModal) return;
+
+    const isConnecting = activeQrSession?.status === 'connecting';
     const hasLiveQr = Boolean(modalQrCode);
-    if (!isModalConnected && !hasLiveQr && !startingSessionRef.current) {
+    
+    // Only trigger initial session start once if no session has started yet and not currently handshaking
+    if (!isModalConnected && !isConnecting && !hasLiveQr && !startingSessionRef.current) {
       startingSessionRef.current = true;
-      const isStuck = (localSessions || []).some(s => s && s.status === 'connecting' && !s.qr_code);
-      handleStartSession(null, isStuck).finally(() => {
+      handleStartSession(activeQrSession?.id, false).finally(() => {
         setTimeout(() => { startingSessionRef.current = false; }, 3000);
       });
     }
-
-    const interval = setInterval(() => {
-      fetchCurrentSessions();
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [showQrModal, isModalConnected, modalQrCode, localSessions, fetchCurrentSessions]);
-
-  // Watchdog: If modal is open for 12 seconds and no QR code appears, trigger hard reset for guaranteed QR
-  useEffect(() => {
-    if (!showQrModal || isModalConnected || modalQrCode) return;
-
-    const timer = setTimeout(() => {
-      if (showQrModal && !modalQrCode && !isModalConnected && !startingSessionRef.current) {
-        console.log('[QR Watchdog] No QR code detected after 12s: triggering clean reset...');
-        setQrActionMsg('Clearing stale session & generating fresh QR Code...');
-        handleStartSession(null, true);
-      }
-    }, 12000);
-
-    return () => clearTimeout(timer);
-  }, [showQrModal, isModalConnected, modalQrCode]);
+  }, [currentNav, showQrModal, isModalConnected, modalQrCode, activeQrSession?.status, activeQrSession?.id]);
 
   // =========================================================================
   // 100% REAL DYNAMIC DATA (ZERO HARDCODED DUMMY VALUES)

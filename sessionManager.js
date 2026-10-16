@@ -111,8 +111,16 @@ export const activeSockets = new Map();
 // Map to hold debounced reconnect timers to prevent tight loop flapping
 const reconnectTimers = new Map();
 
-// In-memory cache for WA Web Version to prevent 3s network stalls on reconnects
-let cachedWaWebVersion = null;
+// In-memory cache for WA Web Version with modern default to prevent outdated version handshakes
+let cachedWaWebVersion = [2, 3000, 1050574057];
+try {
+  fetchLatestWaWebVersion().then(res => {
+    if (res?.version) {
+      cachedWaWebVersion = res.version;
+      console.log(`[Baileys] Latest WA Web version cached: ${res.version.join('.')}`);
+    }
+  }).catch(() => {});
+} catch (_) {}
 
 // Global reference to Socket.io instance
 let globalIoInstance = null;
@@ -1054,7 +1062,7 @@ export async function startSession(id, io, forceClean = false) {
 }
 
 // Stop session
-export async function stopSession(id) {
+export async function stopSession(id, shouldLogout = false) {
   if (reconnectTimers.has(id)) {
     clearTimeout(reconnectTimers.get(id));
     reconnectTimers.delete(id);
@@ -1062,23 +1070,31 @@ export async function stopSession(id) {
   const sock = activeSockets.get(id);
   if (sock) {
     try {
+      if (shouldLogout && sock.user?.id) {
+        console.log(`[Session ${id}] Sending official WhatsApp logout packet to unlink phone...`);
+        await sock.logout('User explicitly disconnected from dashboard').catch(() => {});
+      }
       sock.ev?.removeAllListeners();
       sock.end();
     } catch (err) {
       console.error(`Error closing socket for session ${id}:`, err);
     }
     activeSockets.delete(id);
-    await updateSessionStatus(id, 'disconnected', null, null);
   }
+  await updateSessionStatus(id, 'disconnected', null, null);
 }
 
 // Delete session files and session from database
 export async function destroySession(id) {
-  await stopSession(id);
+  await stopSession(id, true);
   
   const sessionPath = path.join(sessionsDir, id);
   if (fs.existsSync(sessionPath)) {
-    fs.rmSync(sessionPath, { recursive: true, force: true });
+    try {
+      fs.rmSync(sessionPath, { recursive: true, force: true });
+    } catch (e) {
+      console.warn(`[destroySession] Could not remove ${sessionPath}:`, e.message);
+    }
   }
 
   await dbDeleteSession(id);

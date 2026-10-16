@@ -1587,9 +1587,16 @@ export default function setupRoutes(io) {
         return res.json({ message: 'QR Code already active', id, status: session.status, qr_code: session.qr_code });
       }
 
-      // If session is disconnected or force/wipe is requested, clean up stale socket and auth
+      // If session is currently in the middle of phone handshake (connecting), DO NOT kill the socket!
+      if (!force && realSock && session && session.status === 'connecting') {
+        return res.json({ message: 'Session is connecting with phone', id, status: 'connecting', qr_code: session.qr_code });
+      }
+
+      // Only clean up socket and auth if force/wipe requested or session was disconnected
       const shouldClean = force || wipeAuth || !session || session.status === 'disconnected';
-      await stopSession(id).catch(() => {});
+      if (force || wipeAuth || session?.status === 'disconnected') {
+        await stopSession(id).catch(() => {});
+      }
 
       startSession(id, io, shouldClean).catch(err => {
         console.error('Error starting session:', err);
@@ -1735,6 +1742,8 @@ export default function setupRoutes(io) {
 
       if (io) {
         io.emit('session_disconnected', { sessionId: targetId, newSessionId, tenantId });
+        io.emit('session_update', { id: targetId, status: 'disconnected', phoneNumber: null, qr: null, qr_code: null, tenantId });
+        io.to(`tenant_${tenantId}`).emit('session_update', { id: targetId, status: 'disconnected', phoneNumber: null, qr: null, qr_code: null });
       }
 
       res.json({

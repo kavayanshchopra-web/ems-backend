@@ -972,7 +972,7 @@ export default function ConversationsPage({
   const companyPhone = companyPrimarySession?.phone_number || companyPrimarySession?.phoneNumber || '';
   const modalConnectedPhone = activeQrSession?.phone_number || activeQrSession?.phoneNumber || '';
 
-  const isConnected = primarySession?.status === 'connected';
+  const isConnected = Boolean(primarySession && primarySession.status === 'connected');
   const isDedicatedConnected = myDedicatedSession?.status === 'connected';
   const isCompanyConnected = companyPrimarySession?.status === 'connected';
 
@@ -1028,9 +1028,13 @@ export default function ConversationsPage({
     return [];
   };
 
-  // Initial sessions fetch on mount to sync live WhatsApp line status
+  // Initial sessions fetch on mount & continuous sync to detect Hub QR pairings/disconnects
   useEffect(() => {
     fetchCurrentSessions();
+    const sessInterval = setInterval(() => {
+      fetchCurrentSessions();
+    }, 4000);
+    return () => clearInterval(sessInterval);
   }, []);
 
   // Start or trigger QR code generation for WhatsApp session
@@ -1683,6 +1687,19 @@ export default function ConversationsPage({
       if (typeof cleanup === 'function') cleanup();
     };
   }, [activeContact?.id, activeContact?.phone, activeContact?.rawPhone, fetchMessagesForContact]);
+
+  // 4c. Reconnect Sync: When WhatsApp line reconnects, immediately sync conversations & messages
+  const prevConnectedRef = useRef(isConnected);
+  useEffect(() => {
+    if (!prevConnectedRef.current && isConnected) {
+      console.log('[ConversationsPage] WhatsApp line reconnected! Automatically syncing chats & active contact...');
+      fetchConversations();
+      if (activeContact) {
+        fetchMessagesForContact(activeContact, true);
+      }
+    }
+    prevConnectedRef.current = isConnected;
+  }, [isConnected, activeContact, fetchConversations, fetchMessagesForContact]);
 
   // 4b. Smart Delta Reconciliation & Visibility Poller (Zero-Loss Message Engine)
   useEffect(() => {
@@ -2541,6 +2558,10 @@ export default function ConversationsPage({
   // Helper to dispatch media attachment or voice note to backend & Baileys
   const sendMediaDirect = async ({ name, type, mediaType, base64, caption = '' }) => {
     if (!activeContact || isSending) return;
+    if (!isConnected) {
+      if (showToast) showToast('WhatsApp line is disconnected. Media upload paused.', 'warning');
+      return;
+    }
     if (walletInfo.balance !== null && walletInfo.balance <= 0) {
       if (showToast) showToast('Wallet balance is empty (₹0.00). Please recharge your wallet to send media.', 'error');
       return;
@@ -2748,6 +2769,10 @@ export default function ConversationsPage({
   };
 
   const handleStartAudioRecording = async () => {
+    if (!isConnected) {
+      if (showToast) showToast('WhatsApp line is disconnected. Voice note recording paused.', 'warning');
+      return;
+    }
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         if (showToast) showToast('Microphone access is not supported on this browser', 'error');
@@ -3005,6 +3030,10 @@ export default function ConversationsPage({
   // 6. Handle Send WhatsApp Message (Hybrid: Desktop App WhatsApp Web Bridge + Backend Fallback)
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
+    if (!isConnected) {
+      if (showToast) showToast('WhatsApp line is disconnected. Live chat is paused until reconnected.', 'warning');
+      return;
+    }
     if ((!replyText.trim() && !selectedAttachment) || !activeContact) return;
 
     if (walletInfo.balance !== null && walletInfo.balance <= 0) {
@@ -5434,6 +5463,31 @@ export default function ConversationsPage({
                 </div>
               )}
 
+              {/* WhatsApp Disconnected Notice Banner */}
+              {!isConnected && (
+                <div style={{
+                  background: '#fff1f2',
+                  borderTop: '1px solid #fecdd3',
+                  borderBottom: '1px solid #fda4af',
+                  padding: isMobile ? '8px 12px' : '9px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                  boxSizing: 'border-box'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <WifiOff size={16} color="#e11d48" style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: isMobile ? '12px' : '12.5px', color: '#be123c', fontWeight: '600' }}>
+                      WhatsApp line disconnected. Chat is paused.
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#9f1239', fontWeight: '600', background: '#ffe4e6', padding: '3px 8px', borderRadius: '4px', flexShrink: 0 }}>
+                    Connect in WhatsApp Hub → Devices
+                  </span>
+                </div>
+              )}
+
               {!walletInfo.isDepleted && walletInfo.isBelowThreshold && walletInfo.balance !== null && (
                 <div style={{
                   background: '#fffbeb',
@@ -5663,26 +5717,28 @@ export default function ConversationsPage({
                     ref={composerInputRef}
                     type="text"
                     placeholder={
-                      walletInfo.isDepleted
-                        ? (isMobile ? 'Wallet empty (₹0.00)' : 'Wallet Empty (₹0.00) — Please recharge your wallet')
-                        : (selectedAttachment 
-                            ? (isMobile ? `Caption for ${selectedAttachment.name}...` : `Add caption for ${selectedAttachment.name} (optional)...`) 
-                            : (isMobile ? 'Type a WhatsApp message...' : `Reply to ${activeContact.name} via WhatsApp...`))
+                      !isConnected
+                        ? 'WhatsApp line disconnected — Chat paused (Link phone in WhatsApp Hub)'
+                        : (walletInfo.isDepleted
+                            ? (isMobile ? 'Wallet empty (₹0.00)' : 'Wallet Empty (₹0.00) — Please recharge your wallet')
+                            : (selectedAttachment 
+                                ? (isMobile ? `Caption for ${selectedAttachment.name}...` : `Add caption for ${selectedAttachment.name} (optional)...`) 
+                                : (isMobile ? 'Type a WhatsApp message...' : `Reply to ${activeContact.name} via WhatsApp...`)))
                     }
                     value={replyText}
                     onChange={handleComposerChange}
-                    disabled={isSending || walletInfo.isDepleted}
+                    disabled={isSending || walletInfo.isDepleted || !isConnected}
                     style={{
                       flex: 1,
                       minWidth: 0,
                       padding: isMobile ? '9px 12px' : '10px 16px',
                       borderRadius: '24px',
-                      border: walletInfo.isDepleted ? '1px solid #fca5a5' : '1px solid #cbd5e1',
+                      border: !isConnected ? '1px solid #fecdd3' : (walletInfo.isDepleted ? '1px solid #fca5a5' : '1px solid #cbd5e1'),
                       outline: 'none',
                       fontSize: '13px',
-                      background: walletInfo.isDepleted ? '#fef2f2' : '#f8fafc',
-                      color: walletInfo.isDepleted ? '#991b1b' : '#0f172a',
-                      cursor: walletInfo.isDepleted ? 'not-allowed' : 'text',
+                      background: !isConnected ? '#fff1f2' : (walletInfo.isDepleted ? '#fef2f2' : '#f8fafc'),
+                      color: !isConnected ? '#9f1239' : (walletInfo.isDepleted ? '#991b1b' : '#0f172a'),
+                      cursor: (!isConnected || walletInfo.isDepleted) ? 'not-allowed' : 'text',
                       boxSizing: 'border-box'
                     }}
                   />
@@ -5691,26 +5747,26 @@ export default function ConversationsPage({
                   {(replyText.trim() || selectedAttachment) ? (
                     <button
                       type="submit"
-                      disabled={isSending || walletInfo.isDepleted}
+                      disabled={isSending || walletInfo.isDepleted || !isConnected}
                       aria-label="Send WhatsApp message"
-                      title="Send WhatsApp message"
+                      title={!isConnected ? 'WhatsApp is disconnected. Chat is paused.' : 'Send WhatsApp message'}
                       style={{
                         padding: isMobile ? '0' : '10px 18px',
                         width: isMobile ? '38px' : 'auto',
                         height: '38px',
                         borderRadius: isMobile ? '50%' : '24px',
-                        background: walletInfo.isDepleted ? '#94a3b8' : 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                        background: (!isConnected || walletInfo.isDepleted) ? '#94a3b8' : 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
                         border: 'none',
                         color: '#ffffff',
                         fontSize: '12.5px',
                         fontWeight: '700',
-                        cursor: (isSending || walletInfo.isDepleted) ? 'not-allowed' : 'pointer',
-                        opacity: isSending ? 0.7 : 1,
+                        cursor: (isSending || walletInfo.isDepleted || !isConnected) ? 'not-allowed' : 'pointer',
+                        opacity: (isSending || !isConnected) ? 0.6 : 1,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: isMobile ? '0' : '6px',
-                        boxShadow: walletInfo.isDepleted ? 'none' : '0 2px 6px rgba(13, 148, 136, 0.3)',
+                        boxShadow: (!isConnected || walletInfo.isDepleted) ? 'none' : '0 2px 6px rgba(13, 148, 136, 0.3)',
                         flexShrink: 0
                       }}
                     >
@@ -5721,21 +5777,22 @@ export default function ConversationsPage({
                     <button
                       type="button"
                       onClick={handleStartAudioRecording}
-                      disabled={isSending}
+                      disabled={isSending || !isConnected || walletInfo.isDepleted}
                       aria-label="Record WhatsApp Voice Note"
-                      title="Record WhatsApp Voice Note"
+                      title={!isConnected ? 'WhatsApp is disconnected' : 'Record WhatsApp Voice Note'}
                       style={{
                         width: '38px',
                         height: '38px',
                         borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                        background: (!isConnected || walletInfo.isDepleted) ? '#94a3b8' : 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
                         border: 'none',
                         color: '#ffffff',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)',
+                        cursor: (!isConnected || walletInfo.isDepleted) ? 'not-allowed' : 'pointer',
+                        opacity: !isConnected ? 0.6 : 1,
+                        boxShadow: (!isConnected || walletInfo.isDepleted) ? 'none' : '0 2px 6px rgba(13, 148, 136, 0.3)',
                         flexShrink: 0
                       }}
                     >
