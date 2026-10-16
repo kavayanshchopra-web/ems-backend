@@ -5,5 +5,5 @@ echo.
 echo Starting local frontend dev server...
 echo Open: http://localhost:5173
 echo.
-cd /d "D:\AG Projects\whatsapp-crm\frontend"
-npm run dev
+cd /d "%~dp0frontend"
+call npm run dev
