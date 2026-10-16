@@ -1,6 +1,20 @@
 
 const IS_DUMMY_RECORD = (r) => {
   if (!r) return false;
+
+  const rawPhone = String(r.phone || r.phoneNumber || '').replace(/\D/g, '');
+  const rawEmail = String(r.email || '').trim().toLowerCase();
+  const hasValidPhone = rawPhone.length >= 7;
+  const hasValidEmail = rawEmail.includes('@') && rawEmail.includes('.') && !rawEmail.includes('example.com') && !rawEmail.includes('company.com');
+
+  // If it's a contact or deal and has neither real phone nor real email, it's dummy/ghost data
+  if (!hasValidPhone && !hasValidEmail) {
+    const rawName = String(r.name || r.custom_name || r.title || '').trim().toLowerCase();
+    if (rawName.includes('crm lead') || rawName === 'lead' || rawName === 'new lead' || String(r.id || '').startsWith('deal_') || String(r.id || '').startsWith('ghl_')) {
+      return true;
+    }
+  }
+
   const s = (typeof r === 'string' ? r : JSON.stringify(r)).toLowerCase();
   return (
     s.includes('rahul.sharma') ||
@@ -2186,7 +2200,7 @@ export const SupabaseSandboxService = {
     'attendance_logs': 'attendance_logs',
     'employees': 'employees',
     'contacts': 'contacts',
-    'crm_deals': 'contacts',
+    'crm_deals': 'app_records',
     'recruitment_ats': 'recruitment_ats',
     'asset_management': 'asset_management',
     'assets': 'asset_management',

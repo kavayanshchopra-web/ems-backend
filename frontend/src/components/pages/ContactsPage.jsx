@@ -1,6 +1,29 @@
 
 const isLegacyDummyContact = (item) => {
   if (!item) return false;
+
+  const rawPhone = String(item.phone || item.phoneNumber || item.customerPhone || item.rawPhone || '').replace(/\D/g, '');
+  const rawEmail = String(item.email || item.customerEmail || '').trim().toLowerCase();
+  const hasValidPhone = rawPhone.length >= 7;
+  const hasValidEmail = rawEmail.includes('@') && rawEmail.includes('.') && !rawEmail.includes('example.com') && !rawEmail.includes('company.com');
+
+  // 1. Strict validation: A contact MUST have a real phone number or a real email address
+  if (!hasValidPhone && !hasValidEmail) {
+    return true;
+  }
+
+  // 2. Reject placeholder names without real phone
+  const rawName = String(item.name || item.fullName || item.contactName || item.customName || item.custom_name || '').trim().toLowerCase();
+  if ((rawName === 'crm lead' || rawName === 'crm lead - crm lead' || rawName === 'lead' || rawName === 'new lead') && !hasValidPhone) {
+    return true;
+  }
+
+  // 3. Reject deal items that leaked into contacts
+  const rawId = String(item.id || '');
+  if (rawId.startsWith('deal_')) {
+    return true;
+  }
+
   const s = JSON.stringify(item).toLowerCase();
   return (
     s.includes('rahul.sharma') ||
@@ -13,8 +36,9 @@ const isLegacyDummyContact = (item) => {
     s.includes('priya sharma') ||
     s.includes('amit roy') ||
     s.includes('karan malhotra') ||
-    s.includes('live sim call lead') ||
-    (item.id && String(item.id).startsWith('deal_') && !item.phone && !item.email)
+    s.includes('emp_001') ||
+    s.includes('emp_002') ||
+    s.includes('live sim call lead')
   );
 };
 
@@ -205,8 +229,13 @@ export default function ContactsPage({
         return; // Skip group chats and system broadcast IDs
       }
 
-      // Skip dummy deal cards that don't belong in Contacts
-      if (d.dealValue !== undefined && !d.phone && !d.email && !d.ghlContactId && !d.contactName) {
+      // Skip dummy deal cards and ghost records that have no valid phone and no valid email
+      if (rawId.startsWith('deal_')) {
+        return;
+      }
+      const initialDigits = String(d.phone || d.phoneNumber || d.customerPhone || (rawId.includes('@s.whatsapp.net') ? rawId.split('@')[0] : '')).replace(/\D/g, '');
+      const initialEmail = String(d.email || d.customerEmail || '').trim().toLowerCase();
+      if (initialDigits.length < 7 && (!initialEmail.includes('@') || !initialEmail.includes('.'))) {
         return;
       }
 

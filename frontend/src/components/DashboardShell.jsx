@@ -1643,9 +1643,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         try {
           const contact = data?.contact || data;
           if (!contact) return;
+          const cleanPhone = (contact.phone || contact.phoneNumber || '').replace(/[^0-9+]/g, '');
+          const cleanEmail = (contact.email || '').trim().toLowerCase();
+          const hasPhone = cleanPhone.replace(/\D/g, '').length >= 7;
+          const hasEmail = cleanEmail.includes('@') && cleanEmail.includes('.') && !cleanEmail.includes('example.com');
+          if (!hasPhone && !hasEmail) return;
           const fullName = contact.name || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || contact.customName || contact.custom_name || contact.phone || 'CRM Lead';
-          const cleanPhone = (contact.phone || '').replace(/[^0-9+]/g, '');
-          const cleanEmail = contact.email || '';
           const contactId = data.contactId || data.id || data.ghlContactId || `ghl_${Date.now()}`;
           const currentCompany = String(effectiveAuthUser?.companyId || effectiveAuthUser?.tenantId || authUser?.companyId || authUser?.tenantId || '');
           const safeTenant = Number(currentCompany);
@@ -1731,10 +1734,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
         if (!Array.isArray(recentContacts) || recentContacts.length === 0) return;
 
+        // Filter out empty ghost contacts that have no phone and no email
+        const validContacts = recentContacts.filter(c => {
+          if (!c) return false;
+          const cp = (c.phone || c.phoneNumber || '').replace(/\D/g, '');
+          const ce = (c.email || '').trim().toLowerCase();
+          return cp.length >= 7 || (ce.includes('@') && ce.includes('.') && !ce.includes('example.com'));
+        });
+        if (validContacts.length === 0) return;
+
         // If in sandbox environment, sync new contacts directly into Supabase Sandbox
         if (isSandboxEnvironment()) {
           const freshGhlContacts = [];
-          for (const c of recentContacts) {
+          for (const c of validContacts) {
             if (c && c.id && !knownContactIds.has(c.id)) {
               knownContactIds.add(c.id);
               freshGhlContacts.push(c);
@@ -1779,7 +1791,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           const existingDeals = await FirebaseCloudEngine.fetchRecords('crm_deals', currentCompany).catch(() => []);
           const existingDealIds = new Set((existingDeals || []).map(d => String(d.id)));
 
-          for (const c of recentContacts) {
+          for (const c of validContacts) {
             const dealId = `deal_${c.id}`;
             if (!existingDealIds.has(dealId) && !knownContactIds.has(c.id)) {
               knownContactIds.add(c.id);
