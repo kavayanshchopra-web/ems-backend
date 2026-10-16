@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutDashboard,
   Smartphone,
@@ -31,7 +31,12 @@ import {
   AlertCircle,
   ExternalLink,
   Clock,
-  ArrowRight
+  ArrowRight,
+  QrCode,
+  Trash2,
+  Power,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import WhatsAppTemplateService from '../../core/services/whatsAppTemplateService';
 import TenantStorage from '../../core/services/TenantStorage';
@@ -49,6 +54,9 @@ import {
   WarmerDetailModal
 } from './WhatsAppDashboardDataModals';
 
+const isDesktop = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_URL = isDesktop ? 'http://localhost:5000/api' : 'https://api.employeemanagementsystems.com/api';
+
 export default function LiveWhatsAppWebPage({
   authUser,
   sessions = [],
@@ -65,6 +73,10 @@ export default function LiveWhatsAppWebPage({
   );
 
   const userName = authUser?.name || authUser?.fullName || authUser?.email?.split('@')[0] || 'User';
+  const token = authUser?.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null);
+  const userRole = String(authUser?.role || 'employee').toLowerCase().trim();
+  const userEmpId = String(authUser?.employeeId || authUser?.id || '').toLowerCase().trim();
+  const isOwnerOrAdmin = ['superadmin', 'super_admin', 'owner', 'admin', 'company_admin'].includes(userRole);
 
   // Navigation state
   const [currentNav, setCurrentNav] = useState('dashboard');
@@ -93,21 +105,308 @@ export default function LiveWhatsAppWebPage({
   const [quickSendRecipient, setQuickSendRecipient] = useState(null);
 
   // =========================================================================
+  // WHATSAPP BAILEYS QR CONNECTION & MULTI-DEVICE PAIRING ENGINE
+  // =========================================================================
+  const [localSessions, setLocalSessions] = useState(() => (Array.isArray(sessions) ? sessions : []));
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrActionMsg, setQrActionMsg] = useState('');
+  const [activePairingTab, setActivePairingTab] = useState('qr'); // 'qr' | 'devices'
+  const startingSessionRef = useRef(false);
+
+  // Sync prop sessions when parent updates
+  useEffect(() => {
+    if (Array.isArray(sessions) && sessions.length > 0) {
+      setLocalSessions(sessions);
+    }
+  }, [sessions]);
+
+  // Target Session Scoping: Owner pairs Company Line, Employee pairs Dedicated Line
+  const myTargetSessionId = useMemo(() => {
+    if (isOwnerOrAdmin) return `session_${activeTenant}_primary`;
+    return `session_${activeTenant}_emp_${userEmpId || 'agent'}`;
+  }, [isOwnerOrAdmin, activeTenant, userEmpId]);
+
+  // Employee dedicated session
+  const myDedicatedSession = useMemo(() => {
+    if (!Array.isArray(localSessions) || localSessions.length === 0) return null;
+    return localSessions.find(s => s && s.id === myTargetSessionId) || null;
+  }, [localSessions, myTargetSessionId]);
+
+  // Company primary session
+  const companyPrimarySession = useMemo(() => {
+    if (!Array.isArray(localSessions) || localSessions.length === 0) return null;
+    const isPrimaryName = (s) => s.id === 'primary' || s.id === `session_${activeTenant}_primary` || s.id?.includes('primary');
+    const primaryNamed = localSessions.find(s => isPrimaryName(s));
+    if (primaryNamed && primaryNamed.status === 'connected') return primaryNamed;
+    const anyConnected = localSessions.find(s => s && s.status === 'connected');
+    if (anyConnected) return anyConnected;
+    if (primaryNamed) return primaryNamed;
+    const anyQr = localSessions.find(s => s && (s.status === 'qr_ready' || Boolean(s.qr_code)));
+    if (anyQr) return anyQr;
+    return localSessions[0] || null;
+  }, [localSessions, activeTenant]);
+
+  const activeQrSession = useMemo(() => {
+    if (isOwnerOrAdmin) return companyPrimarySession;
+    return myDedicatedSession || companyPrimarySession;
+  }, [isOwnerOrAdmin, companyPrimarySession, myDedicatedSession]);
+
+  const modalQrCode = useMemo(() => {
+    if (activeQrSession?.qr_code) return activeQrSession.qr_code;
+    const anyWithQr = (localSessions || []).find(s => s && s.qr_code);
+    return anyWithQr?.qr_code || null;
+  }, [activeQrSession, localSessions]);
+
+  useEffect(() => {
+    if (modalQrCode) {
+      setQrLoading(false);
+    }
+  }, [modalQrCode]);
+
+  const isModalConnected = activeQrSession?.status === 'connected';
+  const modalConnectedPhone = activeQrSession?.phone_number || activeQrSession?.phoneNumber || '';
+
+  // Fetch active sessions from backend
+  const fetchCurrentSessions = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/sessions`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'x-tenant-id': activeTenant
+        }
+      });
+      if (res.ok) {
+        let data = await res.json();
+        if (Array.isArray(data)) {
+          if (!isOwnerOrAdmin && myTargetSessionId && !data.some(s => s.id === myTargetSessionId)) {
+            try {
+              const fallbackRes = await fetch(`${API_URL}/sessions`, {
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {})
+                }
+              });
+              if (fallbackRes.ok) {
+                const allData = await fallbackRes.json();
+                const mySess = (allData || []).find(s => s.id === myTargetSessionId);
+                if (mySess) {
+                  data = [...data, mySess];
+                }
+              }
+            } catch (e) {}
+          }
+          setLocalSessions(data);
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('[LiveWhatsAppWebPage] Sessions fetch notice:', e);
+    }
+    return [];
+  }, [activeTenant, token, isOwnerOrAdmin, myTargetSessionId]);
+
+  // Initial fetch on component mount
+  useEffect(() => {
+    fetchCurrentSessions();
+  }, [fetchCurrentSessions]);
+
+  // Start or trigger QR code generation for WhatsApp session
+  const handleStartSession = async (sessId, force = false) => {
+    setQrLoading(true);
+    setQrActionMsg('Generating secure WhatsApp QR Code...');
+    try {
+      const reqHeaders = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'x-tenant-id': String(activeTenant)
+      };
+
+      let currentList = localSessions;
+      if (!currentList || currentList.length === 0) {
+        currentList = await fetchCurrentSessions();
+      }
+
+      let targetId = sessId;
+      if (!targetId) {
+        targetId = isOwnerOrAdmin
+          ? (companyPrimarySession?.id || (currentList.find(s => s && (s.id === 'primary' || s.id?.includes('primary')))?.id) || `session_${activeTenant}_primary`)
+          : myTargetSessionId;
+      }
+
+      const exists = (currentList || []).some(s => s && s.id === targetId);
+      if (!exists) {
+        const phoneLabel = targetId.includes('_emp_')
+          ? `Employee Line (${userName || userEmpId || 'Agent'})`
+          : 'Primary WhatsApp Line';
+        const createRes = await fetch(`${API_URL}/sessions`, {
+          method: 'POST',
+          headers: reqHeaders,
+          body: JSON.stringify({ id: targetId, phoneName: phoneLabel, tenantId: activeTenant })
+        });
+        if (createRes.ok) {
+          const created = await createRes.json();
+          currentList = [...(currentList || []), created];
+          setLocalSessions(currentList);
+        }
+      }
+
+      if (targetId) {
+        const url = `${API_URL}/sessions/start/${targetId}${force ? '?force=true&wipeAuth=true' : ''}`;
+        let startRes = await fetch(url, {
+          method: 'POST',
+          headers: reqHeaders,
+          body: JSON.stringify({ force: Boolean(force), wipeAuth: Boolean(force), tenantId: activeTenant })
+        });
+        if (!startRes.ok && targetId.includes('_emp_')) {
+          startRes = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ force: Boolean(force), wipeAuth: Boolean(force), tenantId: 1 })
+          });
+        }
+        if (startRes.ok) {
+          const startData = await startRes.json().catch(() => ({}));
+          if (startData?.qr_code) {
+            setLocalSessions(prev => {
+              const list = prev || [];
+              const matched = list.some(s => s.id === (startData.id || targetId));
+              if (matched) {
+                return list.map(s => s.id === (startData.id || targetId) ? { ...s, qr_code: startData.qr_code, status: 'qr_ready' } : s);
+              }
+              return [{ id: startData.id || targetId, status: 'qr_ready', qr_code: startData.qr_code, phone_name: 'Primary WhatsApp' }, ...list];
+            });
+            setQrActionMsg('Scan the QR code below with your WhatsApp app.');
+            setQrLoading(false);
+          } else {
+            setQrActionMsg('Connecting to Cloud Gateway... QR will appear momentarily.');
+          }
+        }
+      }
+      setTimeout(fetchCurrentSessions, 600);
+      setTimeout(fetchCurrentSessions, 1400);
+      setTimeout(fetchCurrentSessions, 2600);
+    } catch (err) {
+      console.error('[Start Session Error]', err);
+      setQrActionMsg('Connection notice: ' + err.message);
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  // Disconnect / Reset active WhatsApp session
+  const handleDisconnectSession = async (sessId) => {
+    const targetId = sessId || (isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${activeTenant}_primary`) : myTargetSessionId);
+    const confirmPrompt = isOwnerOrAdmin
+      ? 'Are you sure you want to disconnect this WhatsApp number and generate a new QR code?'
+      : 'Are you sure you want to disconnect your WhatsApp line?';
+    if (!window.confirm(confirmPrompt)) return;
+    setQrLoading(true);
+    setQrActionMsg('Disconnecting WhatsApp session...');
+    try {
+      setLocalSessions(prev => (prev || []).map(s => s.id === targetId ? { ...s, status: 'connecting', qr_code: null } : s));
+
+      const res = await fetch(`${API_URL}/sessions/reset/${encodeURIComponent(targetId)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': String(activeTenant),
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ tenantId: activeTenant })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      const newId = data.newSessionId || targetId;
+
+      await fetchCurrentSessions();
+      handleStartSession(newId);
+    } catch (err) {
+      console.error('[Disconnect Session Error]', err);
+      setQrActionMsg('Disconnect notice: ' + err.message);
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  // Clean wipe & reset for Owner / SuperAdmin
+  const handleResetLine = async () => {
+    if (!window.confirm('Reset WhatsApp line cleanly and generate a fresh stable QR code?')) return;
+    setQrLoading(true);
+    setQrActionMsg('Wiping stale session keys & generating fresh QR code...');
+    try {
+      const res = await fetch(`${API_URL}/sessions/cleanup-and-reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': String(activeTenant || 1),
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+      const data = await res.json().catch(() => ({}));
+      await fetchCurrentSessions();
+      const targetSess = data?.sessionId || (companyPrimarySession?.id || `session_${activeTenant}_primary`);
+      await handleStartSession(targetSess, true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  // Poll sessions while QR modal is open and auto-request QR safely
+  useEffect(() => {
+    if (!showQrModal) return;
+
+    fetchCurrentSessions();
+
+    const hasLiveQr = Boolean(modalQrCode);
+    if (!isModalConnected && !hasLiveQr && !startingSessionRef.current) {
+      startingSessionRef.current = true;
+      const isStuck = (localSessions || []).some(s => s && s.status === 'connecting' && !s.qr_code);
+      handleStartSession(null, isStuck).finally(() => {
+        setTimeout(() => { startingSessionRef.current = false; }, 3000);
+      });
+    }
+
+    const interval = setInterval(() => {
+      fetchCurrentSessions();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [showQrModal, isModalConnected, modalQrCode, localSessions, fetchCurrentSessions]);
+
+  // Watchdog: If modal is open for 12 seconds and no QR code appears, trigger hard reset for guaranteed QR
+  useEffect(() => {
+    if (!showQrModal || isModalConnected || modalQrCode) return;
+
+    const timer = setTimeout(() => {
+      if (showQrModal && !modalQrCode && !isModalConnected && !startingSessionRef.current) {
+        console.log('[QR Watchdog] No QR code detected after 12s: triggering clean reset...');
+        setQrActionMsg('Clearing stale session & generating fresh QR Code...');
+        handleStartSession(null, true);
+      }
+    }, 12000);
+
+    return () => clearTimeout(timer);
+  }, [showQrModal, isModalConnected, modalQrCode]);
+
+  // =========================================================================
   // 100% REAL DYNAMIC DATA (ZERO HARDCODED DUMMY VALUES)
   // =========================================================================
 
-  // Real Sessions Filtered to Active Tenant
+  // Real Sessions Filtered to Active Tenant from localSessions
   const tenantSessions = useMemo(() => {
-    if (!Array.isArray(sessions)) return [];
-    return sessions.filter(s => {
+    if (!Array.isArray(localSessions)) return [];
+    return localSessions.filter(s => {
       if (!s) return false;
       if (activeTenant !== '1' && activeTenant !== 'default_tenant') {
         const sTenant = String(s.tenant_id || s.tenantId || '');
-        return sTenant === activeTenant;
+        return !sTenant || sTenant === activeTenant;
       }
       return true;
     });
-  }, [sessions, activeTenant]);
+  }, [localSessions, activeTenant]);
 
   const connectedDevicesCount = useMemo(() => {
     return tenantSessions.filter(s => s && s.status === 'connected').length;
@@ -208,6 +507,7 @@ export default function LiveWhatsAppWebPage({
   // Dynamic Refresh Handler
   const handleRefreshData = () => {
     setIsRefreshing(true);
+    fetchCurrentSessions();
     setTimeout(() => {
       setLastUpdated(new Date().toLocaleTimeString());
       try {
@@ -1636,54 +1936,60 @@ export default function LiveWhatsAppWebPage({
         />
       )}
 
-      {/* Devices QR Pairing Modal */}
+      {/* Devices QR Pairing & Multi-Session Gateway Modal */}
       {showQrModal && (
         <div style={{
           position: 'fixed',
           inset: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(15, 23, 42, 0.72)',
+          backdropFilter: 'blur(6px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 9999,
-          padding: '20px'
+          padding: '16px'
         }}>
           <div style={{
             backgroundColor: '#ffffff',
-            borderRadius: '16px',
+            borderRadius: '20px',
             width: '100%',
             maxWidth: '560px',
             border: '1px solid #e2e8f0',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
-            overflow: 'hidden'
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '92vh'
           }}>
+            {/* Modal Header */}
             <div style={{
               padding: '18px 24px',
-              borderBottom: '1px solid #f1f5f9',
+              background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
+              color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  backgroundColor: '#f0fdfa',
-                  color: '#0d9488',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <Smartphone size={18} />
+                  <QrCode size={20} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
-                    Connected WhatsApp Devices
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, letterSpacing: '-0.2px' }}>
+                    {isOwnerOrAdmin ? 'Company WhatsApp Device Hub' : 'Link Personal Work WhatsApp'}
                   </h3>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>
-                    Multi-session pairing & QR authentication
+                  <div style={{ fontSize: '12px', opacity: 0.9, marginTop: '2px' }}>
+                    {isModalConnected
+                      ? 'Live & Cloud Synced'
+                      : 'Scan QR with WhatsApp mobile app to connect device'}
                   </div>
                 </div>
               </div>
@@ -1692,132 +1998,524 @@ export default function LiveWhatsAppWebPage({
                 type="button"
                 onClick={() => setShowQrModal(false)}
                 style={{
-                  background: 'transparent',
+                  background: 'rgba(255, 255, 255, 0.2)',
                   border: 'none',
-                  color: '#94a3b8',
+                  color: '#ffffff',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   cursor: 'pointer',
-                  padding: '4px'
+                  transition: 'background 0.15s ease'
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.35)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <div style={{ padding: '20px 24px' }}>
-              {tenantSessions.length === 0 ? (
-                <div style={{
-                  padding: '36px 20px',
-                  textAlign: 'center',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '12px',
-                  border: '1px dashed #cbd5e1',
-                  marginBottom: '20px'
-                }}>
+            {/* Sub-header Navigation Tabs */}
+            <div style={{
+              display: 'flex',
+              borderBottom: '1px solid #e2e8f0',
+              backgroundColor: '#f8fafc',
+              padding: '0 16px'
+            }}>
+              <button
+                type="button"
+                onClick={() => setActivePairingTab('qr')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '12px 16px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: activePairingTab === 'qr' ? '2.5px solid #0d9488' : '2.5px solid transparent',
+                  color: activePairingTab === 'qr' ? '#0d9488' : '#64748b',
+                  fontSize: '13px',
+                  fontWeight: activePairingTab === 'qr' ? '800' : '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <QrCode size={14} />
+                <span>{isModalConnected ? 'Connected Line' : 'Scan QR Code'}</span>
+                {isModalConnected && (
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActivePairingTab('devices')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '12px 16px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: activePairingTab === 'devices' ? '2.5px solid #0d9488' : '2.5px solid transparent',
+                  color: activePairingTab === 'devices' ? '#0d9488' : '#64748b',
+                  fontSize: '13px',
+                  fontWeight: activePairingTab === 'devices' ? '800' : '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Smartphone size={14} />
+                <span>All Devices ({tenantSessions.length})</span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '22px 24px', overflowY: 'auto', flex: 1 }}>
+              {activePairingTab === 'qr' ? (
+                isModalConnected ? (
+                  /* Connected State Screen */
                   <div style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '50%',
-                    backgroundColor: '#f1f5f9',
-                    color: '#94a3b8',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 12px'
+                    textAlign: 'center',
+                    gap: '16px',
+                    padding: '10px 0'
                   }}>
-                    <Smartphone size={24} />
-                  </div>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>
-                    No Devices Connected Yet
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#64748b', maxWidth: '340px', margin: '0 auto' }}>
-                    Link your team WhatsApp numbers via QR code to enable automation, templates, and multi-staff messaging.
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-                  {tenantSessions.map((s, idx) => (
-                    <div
-                      key={s.id || idx}
-                      style={{
-                        display: 'flex',
+                    <div style={{
+                      width: '74px',
+                      height: '74px',
+                      borderRadius: '50%',
+                      background: '#dcfce7',
+                      border: '3px solid #86efac',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#16a34a',
+                      boxShadow: '0 6px 18px rgba(22, 163, 74, 0.25)'
+                    }}>
+                      <CheckCircle2 size={40} />
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+                        {isOwnerOrAdmin ? 'Company WhatsApp Line is Live!' : 'Your Personal Work WhatsApp is Live!'}
+                      </div>
+                      <div style={{
+                        display: 'inline-flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px 16px',
-                        borderRadius: '10px',
-                        backgroundColor: '#f8fafc',
-                        border: '1px solid #e2e8f0'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                          width: '34px',
-                          height: '34px',
-                          borderRadius: '50%',
-                          backgroundColor: s.status === 'connected' ? '#22c55e' : '#f59e0b',
-                          color: '#ffffff',
+                        gap: '6px',
+                        marginTop: '8px',
+                        padding: '5px 14px',
+                        borderRadius: '20px',
+                        background: '#ecfdf5',
+                        border: '1px solid #a7f3d0',
+                        fontSize: '13.5px',
+                        fontWeight: '800',
+                        color: '#047857'
+                      }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                        +{modalConnectedPhone || (isOwnerOrAdmin ? 'Company Line Active' : 'My Line Active')}
+                      </div>
+                      <p style={{ margin: '14px auto 0', fontSize: '12.5px', color: '#64748b', lineHeight: '1.5', maxWidth: '420px' }}>
+                        {isOwnerOrAdmin
+                          ? 'Official company WhatsApp line is linked and actively syncing. Team chats, template broadcasts, and incoming lead replies are handled in Conversations.'
+                          : 'Your personal staff WhatsApp line is linked. Customer messages and lead conversations will route directly through your number.'}
+                      </p>
+                    </div>
+
+                    <div style={{
+                      display: 'flex',
+                      gap: '12px',
+                      width: '100%',
+                      marginTop: '10px',
+                      paddingTop: '16px',
+                      borderTop: '1px solid #f1f5f9'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => handleDisconnectSession(activeQrSession?.id)}
+                        disabled={qrLoading}
+                        style={{
+                          flex: 1,
+                          padding: '11px',
+                          borderRadius: '10px',
+                          background: qrLoading ? '#f1f5f9' : '#fff1f2',
+                          border: '1px solid #fecdd3',
+                          color: qrLoading ? '#94a3b8' : '#e11d48',
+                          fontSize: '12.5px',
+                          fontWeight: '700',
+                          cursor: qrLoading ? 'not-allowed' : 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: '12px',
-                          fontWeight: '800'
-                        }}>
-                          {idx + 1}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>
-                            {s.name || `Device ${idx + 1}`}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#64748b' }}>
-                            {s.phone || s.phone_number || 'Mobile Account'}
-                          </div>
-                        </div>
-                      </div>
+                          gap: '6px'
+                        }}
+                      >
+                        {qrLoading && <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />}
+                        <span>{qrLoading ? 'Disconnecting...' : 'Disconnect Device'}</span>
+                      </button>
 
-                      <span style={{
-                        backgroundColor: s.status === 'connected' ? '#f0fdf4' : '#fffbeb',
-                        color: s.status === 'connected' ? '#16a34a' : '#d97706',
-                        border: `1px solid ${s.status === 'connected' ? '#bbf7d0' : '#fde68a'}`,
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: '700'
-                      }}>
-                        {s.status === 'connected' ? 'Connected' : 'Pending QR'}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowQrModal(false)}
+                        style={{
+                          flex: 1,
+                          padding: '11px',
+                          borderRadius: '10px',
+                          background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                          border: 'none',
+                          color: '#ffffff',
+                          fontSize: '12.5px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 8px rgba(13, 148, 136, 0.3)'
+                        }}
+                      >
+                        Done
+                      </button>
                     </div>
-                  ))}
+                  </div>
+                ) : (
+                  /* QR Code Scanning Screen */
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                    {/* Instructions Box */}
+                    <div style={{
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      padding: '12px 18px',
+                      width: '100%',
+                      boxSizing: 'border-box'
+                    }}>
+                      <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#1e293b', marginBottom: '6px' }}>
+                        {isOwnerOrAdmin ? 'Pair Company Official WhatsApp:' : 'Pair Your Work WhatsApp:'}
+                      </div>
+                      <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: '#64748b', lineHeight: '1.6' }}>
+                        <li>Open <strong>WhatsApp</strong> on your mobile phone</li>
+                        <li>Tap <strong>Menu (⋮)</strong> or <strong>Settings</strong> &gt; <strong>Linked Devices</strong></li>
+                        <li>Tap <strong>Link a Device</strong></li>
+                        <li>Point your phone camera at the QR code below</li>
+                      </ol>
+                    </div>
+
+                    {/* Live QR Box */}
+                    <div style={{
+                      background: '#ffffff',
+                      border: '2px solid #e2e8f0',
+                      borderRadius: '16px',
+                      padding: '16px',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: '240px',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      position: 'relative'
+                    }}>
+                      {modalQrCode ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                          <img
+                            src={modalQrCode}
+                            alt="Scan WhatsApp QR"
+                            style={{ width: '220px', height: '220px', objectFit: 'contain', display: 'block', borderRadius: '8px' }}
+                          />
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '12px',
+                            color: '#0d9488',
+                            fontWeight: '700'
+                          }}>
+                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                            Live QR Ready • Waiting for scan
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '24px' }}>
+                          <RefreshCw size={30} style={{ color: '#0d9488', animation: 'spin 1.2s linear infinite' }} />
+                          <span style={{ fontSize: '13px', color: '#475569', fontWeight: '600', textAlign: 'center', maxWidth: '320px' }}>
+                            {qrActionMsg || 'Connecting to WhatsApp Cloud Gateway...'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleStartSession(activeQrSession?.id, true)}
+                            disabled={qrLoading}
+                            style={{
+                              marginTop: '8px',
+                              padding: '9px 18px',
+                              borderRadius: '8px',
+                              background: '#0d9488',
+                              color: '#ffffff',
+                              border: 'none',
+                              fontSize: '12.5px',
+                              fontWeight: '700',
+                              cursor: qrLoading ? 'not-allowed' : 'pointer',
+                              boxShadow: '0 2px 8px rgba(13, 148, 136, 0.3)'
+                            }}
+                          >
+                            {qrLoading ? 'Generating QR...' : '⚡ Generate Fresh QR Code'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* QR Action Buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleStartSession(activeQrSession?.id, true)}
+                        disabled={qrLoading}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          background: '#f1f5f9',
+                          border: '1px solid #cbd5e1',
+                          color: '#334155',
+                          fontSize: '12.5px',
+                          fontWeight: '700',
+                          cursor: qrLoading ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <RefreshCw size={13} style={{ animation: qrLoading ? 'spin 1s linear infinite' : 'none' }} />
+                        <span>Refresh QR</span>
+                      </button>
+
+                      {isOwnerOrAdmin && (
+                        <button
+                          type="button"
+                          onClick={handleResetLine}
+                          disabled={qrLoading}
+                          style={{
+                            padding: '10px 16px',
+                            borderRadius: '10px',
+                            background: '#fff1f2',
+                            border: '1px solid #fecdd3',
+                            color: '#e11d48',
+                            fontSize: '12.5px',
+                            fontWeight: '700',
+                            cursor: qrLoading ? 'not-allowed' : 'pointer'
+                          }}
+                          title="Wipe stale conflicting sessions and generate 1 clean QR code"
+                        >
+                          Reset Line
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setShowQrModal(false)}
+                        style={{
+                          padding: '10px 20px',
+                          borderRadius: '10px',
+                          background: '#0f172a',
+                          border: 'none',
+                          color: '#ffffff',
+                          fontSize: '12.5px',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                )
+              ) : (
+                /* Devices List Tab */
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>
+                      Registered WhatsApp Sessions
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActivePairingTab('qr');
+                        handleStartSession(null, true);
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        background: '#0d9488',
+                        color: '#ffffff',
+                        border: 'none',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Plus size={13} />
+                      Pair New Session
+                    </button>
+                  </div>
+
+                  {tenantSessions.length === 0 ? (
+                    <div style={{
+                      padding: '36px 20px',
+                      textAlign: 'center',
+                      backgroundColor: '#f8fafc',
+                      borderRadius: '12px',
+                      border: '1px dashed #cbd5e1'
+                    }}>
+                      <div style={{
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '50%',
+                        backgroundColor: '#f1f5f9',
+                        color: '#94a3b8',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 10px'
+                      }}>
+                        <Smartphone size={22} />
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>
+                        No Devices Registered Yet
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748b', maxWidth: '320px', margin: '0 auto 14px' }}>
+                        Connect your company or team numbers to start messaging customers.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActivePairingTab('qr');
+                          handleStartSession(null, false);
+                        }}
+                        style={{
+                          backgroundColor: '#0d9488',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          fontSize: '12.5px',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Scan QR Code Now
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {tenantSessions.map((s, idx) => {
+                        const isSessConnected = s.status === 'connected';
+                        const sessPhone = s.phone || s.phone_number || s.phoneNumber || '';
+
+                        return (
+                          <div
+                            key={s.id || idx}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '12px 16px',
+                              borderRadius: '12px',
+                              backgroundColor: '#f8fafc',
+                              border: `1px solid ${isSessConnected ? '#bbf7d0' : '#e2e8f0'}`,
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '50%',
+                                backgroundColor: isSessConnected ? '#22c55e' : '#f59e0b',
+                                color: '#ffffff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '12px',
+                                fontWeight: '800'
+                              }}>
+                                {idx + 1}
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>
+                                  {s.phone_name || s.name || `Session ${idx + 1}`}
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                                  {sessPhone ? `+${sessPhone}` : 'No phone linked'} • {s.id}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{
+                                backgroundColor: isSessConnected ? '#f0fdf4' : '#fffbeb',
+                                color: isSessConnected ? '#16a34a' : '#d97706',
+                                border: `1px solid ${isSessConnected ? '#bbf7d0' : '#fde68a'}`,
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: '700'
+                              }}>
+                                {isSessConnected ? 'Connected' : 'Pending QR'}
+                              </span>
+
+                              {isSessConnected ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDisconnectSession(s.id)}
+                                  disabled={qrLoading}
+                                  style={{
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    background: '#fff1f2',
+                                    border: '1px solid #fecdd3',
+                                    color: '#e11d48',
+                                    fontSize: '11.5px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Disconnect
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActivePairingTab('qr');
+                                    handleStartSession(s.id, true);
+                                  }}
+                                  style={{
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    background: '#0d9488',
+                                    border: 'none',
+                                    color: '#ffffff',
+                                    fontSize: '11.5px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Scan QR
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
-
-              <div style={{
-                padding: '14px',
-                borderRadius: '10px',
-                backgroundColor: '#f0fdfa',
-                border: '1px dashed #0d9488',
-                textAlign: 'center'
-              }}>
-                <button
-                  type="button"
-                  onClick={() => alert('Opening QR Code generator for new WhatsApp session...')}
-                  style={{
-                    backgroundColor: '#0d9488',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '8px 18px',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: '0 2px 8px rgba(13, 148, 136, 0.3)'
-                  }}
-                >
-                  <Plus size={15} />
-                  Link New WhatsApp Number (QR)
-                </button>
-              </div>
             </div>
           </div>
         </div>

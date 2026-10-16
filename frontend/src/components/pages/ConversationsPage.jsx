@@ -1028,45 +1028,10 @@ export default function ConversationsPage({
     return [];
   };
 
-  const startingSessionRef = useRef(false);
-
-  // Poll sessions while QR modal is open and auto-request QR once safely
+  // Initial sessions fetch on mount to sync live WhatsApp line status
   useEffect(() => {
-    if (!showQrModal) return;
-
     fetchCurrentSessions();
-
-    // Auto-request QR code if not already connected and no live QR code ready
-    const hasLiveQr = Boolean(modalQrCode);
-    if (!isModalConnected && !hasLiveQr && !startingSessionRef.current) {
-      startingSessionRef.current = true;
-      const isStuck = (localSessions || []).some(s => s.status === 'connecting' && !s.qr_code);
-      handleStartSession(null, isStuck).finally(() => {
-        setTimeout(() => { startingSessionRef.current = false; }, 3000);
-      });
-    }
-
-    const interval = setInterval(() => {
-      fetchCurrentSessions();
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [showQrModal, isModalConnected, modalQrCode, localSessions]);
-
-  // Watchdog: If modal is open for 4 seconds and no QR code appears, trigger hard reset for guaranteed QR
-  useEffect(() => {
-    if (!showQrModal || isModalConnected || modalQrCode) return;
-
-    const timer = setTimeout(() => {
-      if (showQrModal && !modalQrCode && !isModalConnected && !startingSessionRef.current) {
-        console.log('[QR Watchdog] No QR code detected after 12s: triggering clean reset...');
-        setQrActionMsg('Clearing stale session & generating fresh QR Code...');
-        handleStartSession(null, true);
-      }
-    }, 12000);
-
-    return () => clearTimeout(timer);
-  }, [showQrModal, isModalConnected, modalQrCode]);
+  }, []);
 
   // Start or trigger QR code generation for WhatsApp session
   const handleStartSession = async (sessId, force = false) => {
@@ -3860,27 +3825,18 @@ export default function ConversationsPage({
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowQrModal(true);
-                    const targetToStart = isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId;
-                    const curr = (localSessions || []).find(s => s.id === targetToStart);
-                    if (!curr || curr.status !== 'connected') {
-                      handleStartSession(targetToStart);
-                    }
-                  }}
+                <div
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    padding: '3px 7px',
+                    gap: '5px',
+                    padding: '3px 8px',
                     borderRadius: '6px',
                     background: (isOwnerOrAdmin ? (isCompanyConnected || isCompanyConnectingWithPhone) : (isDedicatedConnected || isDedicatedConnectingWithPhone))
                       ? '#ecfdf5' 
-                      : (isCompanyConnected ? '#f0fdf4' : (isQRReady ? '#fefce8' : '#f0fdf4')),
-                    border: `1px solid ${(isOwnerOrAdmin ? (isCompanyConnected || isCompanyConnectingWithPhone) : (isDedicatedConnected || isDedicatedConnectingWithPhone)) ? '#a7f3d0' : (isCompanyConnected ? '#86efac' : (isQRReady ? '#fef08a' : '#bbf7d0'))}`,
-                    color: (isOwnerOrAdmin ? (isCompanyConnected || isCompanyConnectingWithPhone) : (isDedicatedConnected || isDedicatedConnectingWithPhone)) ? '#15803d' : (isCompanyConnected ? '#166534' : (isQRReady ? '#a16207' : '#166534')),
+                      : (isCompanyConnected ? '#f0fdf4' : '#f8fafc'),
+                    border: `1px solid ${(isOwnerOrAdmin ? (isCompanyConnected || isCompanyConnectingWithPhone) : (isDedicatedConnected || isDedicatedConnectingWithPhone)) ? '#a7f3d0' : (isCompanyConnected ? '#86efac' : '#e2e8f0')}`,
+                    color: (isOwnerOrAdmin ? (isCompanyConnected || isCompanyConnectingWithPhone) : (isDedicatedConnected || isDedicatedConnectingWithPhone)) ? '#15803d' : (isCompanyConnected ? '#166534' : '#64748b'),
                     fontSize: '10px',
                     fontWeight: '700',
                     cursor: 'pointer',
@@ -3888,20 +3844,29 @@ export default function ConversationsPage({
                     flexShrink: 0,
                     transition: 'all 0.15s ease'
                   }}
+                  onClick={() => {
+                    if (typeof setActiveTab === 'function') {
+                      setActiveTab('wa_live_web');
+                    } else if (typeof window !== 'undefined' && typeof window.__setActiveTab === 'function') {
+                      window.__setActiveTab('wa_live_web');
+                    } else if (showToast) {
+                      showToast('WhatsApp QR code & device linking is located in WhatsApp Hub > Devices.', 'info');
+                    }
+                  }}
                   title={
                     isOwnerOrAdmin
                       ? (isCompanyConnected 
-                          ? `Company Official Line Connected: +${companyPhone}. Click to view` 
+                          ? `Company Line Active: +${companyPhone}. (Manage devices in WhatsApp Hub)` 
                           : isCompanyConnectingWithPhone 
-                            ? `Reconnecting +${companyPhone}... Click to view` 
-                            : 'Connect Company Official WhatsApp')
+                            ? `Reconnecting +${companyPhone}... (Manage in WhatsApp Hub)` 
+                            : 'WhatsApp Standby (Scan QR in WhatsApp Hub > Devices)')
                       : (isDedicatedConnected 
-                          ? `My Dedicated Work WA Connected: +${myDedicatedPhone}. Click to view` 
+                          ? `Work WA Active: +${myDedicatedPhone}. (Manage in WhatsApp Hub)` 
                           : isDedicatedConnectingWithPhone
-                            ? `Reconnecting +${myDedicatedPhone}... Click to view`
+                            ? `Reconnecting +${myDedicatedPhone}... (Manage in WhatsApp Hub)`
                             : (isCompanyConnected 
-                                ? `Company Line (+${companyPhone}) Active as Fallback. Click to Link Your Own WhatsApp Line` 
-                                : 'Link Work WhatsApp / Scan QR'))
+                                ? `Company Line (+${companyPhone}) Active as Fallback. (Link own number in WhatsApp Hub)` 
+                                : 'WhatsApp Standby (Scan QR in WhatsApp Hub > Devices)'))
                   }
                 >
                   {isOwnerOrAdmin ? (
@@ -3917,8 +3882,8 @@ export default function ConversationsPage({
                       </>
                     ) : (
                       <>
-                        <QrCode size={11} color="#059669" />
-                        <span>{isQRReady ? 'Scan QR' : isConnecting ? 'Connecting...' : 'Scan QR'}</span>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }} />
+                        <span>WA Standby</span>
                       </>
                     )
                   ) : (
@@ -3932,14 +3897,19 @@ export default function ConversationsPage({
                         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 4px #f59e0b', display: 'inline-block' }} />
                         <span>+{myDedicatedPhone}</span>
                       </>
+                    ) : isCompanyConnected ? (
+                      <>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 4px #10b981', display: 'inline-block' }} />
+                        <span>Company WA: +{companyPhone}</span>
+                      </>
                     ) : (
                       <>
-                        <QrCode size={11} color={isCompanyConnected ? '#059669' : '#0d9488'} />
-                        <span>{isQRReady ? 'Scan My QR' : isConnecting ? 'Connecting...' : 'Link My WA'}</span>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }} />
+                        <span>WA Standby</span>
                       </>
                     )
                   )}
-                </button>
+                </div>
             </div>
           </div>
 
@@ -5948,354 +5918,7 @@ export default function ConversationsPage({
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* IN-PAGE WHATSAPP BAILEYS QR CODE & CONNECTION MODAL                       */}
-      {/* ========================================================================= */}
-      {showQrModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(15, 23, 42, 0.7)',
-          backdropFilter: 'blur(5px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 99999,
-          padding: '16px'
-        }}>
-          <div style={{
-            background: '#ffffff',
-            borderRadius: '20px',
-            width: '100%',
-            maxWidth: '460px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #e2e8f0',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            {/* Modal Header */}
-            <div style={{
-              padding: '18px 22px',
-              background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <QrCode size={19} />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800' }}>
-                    {isOwnerOrAdmin ? 'Company WhatsApp Gateway' : 'Link Your Work WhatsApp'}
-                  </h3>
-                  <div style={{ fontSize: '11px', opacity: 0.9 }}>
-                    {isModalConnected 
-                      ? 'Active & Cloud Synced' 
-                      : (isOwnerOrAdmin 
-                          ? 'Pair official company phone for central CRM messaging' 
-                          : 'Pair your WhatsApp to message your assigned leads directly')}
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                style={{
-                  background: 'rgba(255,255,255,0.18)',
-                  border: 'none',
-                  color: '#ffffff',
-                  width: '30px',
-                  height: '30px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s ease'
-                }}
-                title="Close"
-              >
-                <X size={16} />
-              </button>
-            </div>
 
-            {/* Modal Content */}
-            <div style={{ padding: '24px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px' }}>
-              {isModalConnected ? (
-                <div style={{
-                  width: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  textAlign: 'center',
-                  gap: '14px'
-                }}>
-                  <div style={{
-                    width: '72px',
-                    height: '72px',
-                    borderRadius: '50%',
-                    background: '#dcfce7',
-                    border: '3px solid #86efac',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#16a34a',
-                    boxShadow: '0 4px 14px rgba(22, 163, 74, 0.2)'
-                  }}>
-                    <CheckCircle2 size={38} />
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
-                      {isOwnerOrAdmin ? 'Company WhatsApp is Live & Connected!' : 'Your Work WhatsApp is Live & Connected!'}
-                    </div>
-                    <div style={{
-                      display: 'inline-block',
-                      marginTop: '6px',
-                      padding: '4px 12px',
-                      borderRadius: '16px',
-                      background: '#ecfdf5',
-                      border: '1px solid #a7f3d0',
-                      fontSize: '13px',
-                      fontWeight: '800',
-                      color: '#047857'
-                    }}>
-                      +{modalConnectedPhone || (isOwnerOrAdmin ? 'Company Line Active' : 'My Line Active')}
-                    </div>
-                    <p style={{ margin: '12px 0 0 0', fontSize: '12px', color: '#64748b', lineHeight: '1.5' }}>
-                      {isOwnerOrAdmin
-                        ? 'Official company WhatsApp line is active on secure cloud. Incoming messages, website leads, and CRM replies sync in real time.'
-                        : 'Your dedicated work WhatsApp session is active on secure cloud. All messages to your assigned leads will route directly through your number.'}
-                    </p>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '6px' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleDisconnectSession(isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId)}
-                      disabled={qrLoading}
-                      style={{
-                        flex: 1,
-                        padding: '11px',
-                        borderRadius: '10px',
-                        background: qrLoading ? '#f1f5f9' : '#fff1f2',
-                        border: '1px solid #fecdd3',
-                        color: qrLoading ? '#94a3b8' : '#e11d48',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: qrLoading ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      {qrLoading && <RefreshCw size={13} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />}
-                      <span>{qrLoading ? 'Disconnecting...' : 'Disconnect Number'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowQrModal(false)}
-                      style={{
-                        flex: 1,
-                        padding: '11px',
-                        borderRadius: '10px',
-                        background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
-                        border: 'none',
-                        color: '#ffffff',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(13, 148, 136, 0.3)'
-                      }}
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Step-by-Step Instructions */}
-                  <div style={{
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '12px',
-                    padding: '12px 16px',
-                    width: '100%',
-                    boxSizing: 'border-box'
-                  }}>
-                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                      {isOwnerOrAdmin ? 'Pair Company WhatsApp:' : 'Pair Your Personal Work WhatsApp:'}
-                    </div>
-                    <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '11.5px', color: '#64748b', lineHeight: '1.6' }}>
-                      <li>Open <b>WhatsApp</b> on your mobile phone</li>
-                      <li>Tap <b>Menu (⋮)</b> or <b>Settings</b> &gt; <b>Linked Devices</b></li>
-                      <li>Tap <b>Link a Device</b></li>
-                      <li>Scan the QR code displayed below</li>
-                    </ol>
-                  </div>
-
-                  {/* Live QR Box */}
-                  <div style={{
-                    background: '#ffffff',
-                    border: '2px solid #e2e8f0',
-                    borderRadius: '16px',
-                    padding: '16px',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: '230px',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    position: 'relative'
-                  }}>
-                    {modalQrCode ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                        <img
-                          src={modalQrCode}
-                          alt="Scan WhatsApp QR"
-                          style={{ width: '210px', height: '210px', objectFit: 'contain', display: 'block', borderRadius: '8px' }}
-                        />
-                        <div style={{ fontSize: '11.5px', color: '#0d9488', fontWeight: '700' }}>
-                          🟢 Live QR Ready • Waiting for scan
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '24px' }}>
-                        <RefreshCw size={28} className="animate-spin" style={{ color: '#0d9488', animation: 'spin 1.2s linear infinite' }} />
-                        <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: '600', textAlign: 'center' }}>
-                          {qrActionMsg || (isModalConnecting ? 'Connecting to WhatsApp gateway...' : 'Initializing WhatsApp session...')}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleStartSession(isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId, true)}
-                          disabled={qrLoading}
-                          style={{
-                            marginTop: '8px',
-                            padding: '9px 18px',
-                            borderRadius: '8px',
-                            background: '#0d9488',
-                            color: '#ffffff',
-                            border: 'none',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            cursor: qrLoading ? 'not-allowed' : 'pointer',
-                            boxShadow: '0 2px 8px rgba(13, 148, 136, 0.3)'
-                          }}
-                        >
-                          {qrLoading ? 'Generating QR Code...' : '⚡ Generate Fresh QR Code'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions Bar */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '10px' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleStartSession(isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId, true)}
-                      style={{
-                        flex: 1,
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        background: '#f1f5f9',
-                        border: '1px solid #cbd5e1',
-                        color: '#334155',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        transition: 'background 0.15s ease'
-                      }}
-                    >
-                      <RefreshCw size={13} className={qrLoading ? 'animate-spin' : ''} />
-                      <span>Refresh QR</span>
-                    </button>
-
-                    {isOwnerOrAdmin && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!window.confirm('Kya aap WhatsApp line ko cleanly reset karna chahte hain taaki naya stable QR code generate ho sake?')) return;
-                          setQrLoading(true);
-                          setQrActionMsg('Wiping stale session keys & generating fresh QR code...');
-                          try {
-                            const res = await fetch(`${API_URL}/sessions/cleanup-and-reset`, {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                'x-tenant-id': String(companyId || 1),
-                                ...(token ? { Authorization: `Bearer ${token}` } : {})
-                              }
-                            });
-                            const data = await res.json().catch(() => ({}));
-                            await fetchCurrentSessions();
-                            const targetSess = data?.sessionId || (companyPrimarySession?.id || `session_${companyId}_primary`);
-                            await handleStartSession(targetSess, true);
-                          } catch (e) {
-                            console.error(e);
-                          } finally {
-                            setQrLoading(false);
-                          }
-                        }}
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          background: '#fff1f2',
-                          border: '1px solid #fecdd3',
-                          color: '#e11d48',
-                          fontSize: '12px',
-                          fontWeight: '700',
-                          cursor: 'pointer'
-                        }}
-                        title="Wipe stale conflicting sessions and generate 1 clean QR code"
-                      >
-                        Reset Line
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setShowQrModal(false)}
-                      style={{
-                        padding: '10px 20px',
-                        borderRadius: '10px',
-                        background: '#0f172a',
-                        border: 'none',
-                        color: '#ffffff',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Close
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Fullscreen WhatsApp Image Lightbox Modal */}
       {lightboxImage && (

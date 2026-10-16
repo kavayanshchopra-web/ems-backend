@@ -71,7 +71,7 @@ Welcome to the **Company Owner Control Manual**. As the business owner, you mana
 - **What it is:** Every metric card on the WhatsApp Automation dashboard is clickable, allowing you to instantly view and manage the underlying database records.
 - **How to interact:**
   - **Messages Sent Card:** Click to open **Messages & Dispatch Logs**, view delivery statuses (`Delivered`, `Read`), and test live dispatches.
-  - **Active Devices Card:** Click to open **Connected WhatsApp Devices**, view all paired phone numbers, and generate new QR pairing codes.
+  - **Active Devices Card:** Click to open **WhatsApp Device Hub & QR Scanner**. Pair new company WhatsApp lines via live QR code scan, view all connected team numbers, and use **Reset Line** to wipe stale keys. Note: QR pairing is centralized here so your Conversations chat screen remains 100% interruption-free!
   - **Total Contacts Card:** Click to view all synchronized CRM contacts with live name/phone search and direct WhatsApp triggers.
   - **Templates Card:** Click to inspect pre-approved company message templates and variables.
   - **Auto Reply Card:** Click to view active keyword triggers and add automated replies for customer queries.
